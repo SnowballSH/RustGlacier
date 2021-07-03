@@ -1,0 +1,108 @@
+program = _{ SOI ~ TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~ EOI }
+
+TERMINATOR = _{ NEWLINE | ";" }
+WHITESPACE = _{ " " | "\t" }
+block_comment = _{ "#*" ~ (block_comment | !"*#" ~ ANY)* ~ "*#" }
+COMMENT = _{ block_comment | ("#" ~ (!NEWLINE ~ ANY)*) }
+
+integer = @{ ASCII_DIGIT{1, 18} }
+identifier = @{ !keyword ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_")* }
+keyword = @{
+    "if" | "else" | "while" | "end" | "fn"
+}
+
+string_literal = @{ "\"" ~ literal_char* ~ "\"" }
+literal_char = { escape_sequence | (!"\"" ~ ANY) }
+escape_sequence = _{ "\\\\" | "\\\"" | "\\\'" | "\\n" | "\\r" | "\\t" | "\\0" }
+
+block = {
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~  "end") | stmt
+}
+
+no_else_block = {
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ !"else" ~ stmt?) | stmt
+}
+
+condition_if = {
+    "if" ~ NEWLINE* ~ expression ~ NEWLINE* ~ block
+}
+
+condition_ifelse = {
+    "if" ~ NEWLINE* ~ expression ~ NEWLINE* ~ no_else_block ~ NEWLINE* ~ "else" ~ NEWLINE* ~ block
+}
+
+while_loop = {
+    "while" ~ NEWLINE* ~ expression ~ NEWLINE* ~ block
+}
+
+function_declare = {
+    "fn" ~ NEWLINE* ~ identifier ~ NEWLINE* ~ function_params ~ NEWLINE* ~ block
+}
+
+call = {
+    "(" ~ NEWLINE* ~ (expression ~ NEWLINE* ~ "," ~ NEWLINE*)* ~ NEWLINE* ~ expression? ~ NEWLINE* ~ ")"
+}
+
+function_params = {
+    "(" ~ NEWLINE* ~ (identifier~ NEWLINE*  ~ "," ~ NEWLINE*)* ~ NEWLINE* ~ identifier? ~ NEWLINE* ~ ")"
+}
+
+empty_call = {
+    !neq ~ "!"
+}
+
+field = {
+    "." ~ identifier
+}
+
+indexing = {
+    "[" ~ NEWLINE* ~ expression ~ NEWLINE* ~ "]"
+}
+
+suffix = {
+    term ~ (call | field | empty_call | indexing)+
+}
+
+term = _{ string_literal | integer | identifier | "(" ~ expression ~ ")" }
+
+prefix = { prefix_operators+ ~ expression_inner }
+
+vector = {
+    "[" ~ NEWLINE* ~ (expression ~ NEWLINE* ~ ","? ~ NEWLINE*)* ~ "]"
+}
+
+// condition_ifelse must be before condition_if
+expression_inner = _{ condition_ifelse | condition_if | while_loop | assign | suffix | prefix | vector | term }
+
+add = { "+" }
+sub = { "-" }
+mul = { "*" }
+div = { "/" }
+modulo = { "%" }
+dbeq = { "==" }
+neq = { "!=" }
+gt = { ">" }
+lt = { "<" }
+gteq = { ">=" }
+lteq = { "<=" }
+
+operators = _{
+    add | sub | mul | div | modulo
+    | dbeq | neq | gteq | lteq | gt | lt
+}
+
+prefix_operators = _{
+    add | sub
+}
+
+infix = _{ expression_inner ~ (operators ~ expression_inner)+ }
+
+assign = { identifier ~ "=" ~ expression }
+
+expression = { infix | expression_inner }
+
+expression_stmt = { expression }
+
+stmt = _{
+    expression_stmt | function_declare
+}
