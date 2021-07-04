@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::value::Value;
 
@@ -31,10 +32,13 @@ impl Heap {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct VM<'a> {
     pub heap: Heap,
     pub variables: HashMap<&'a str, usize>,
+    pub last_popped: Option<Value>,
+    pub error: Option<GlacierError<'a>>,
+    pub line: usize,
 }
 
 impl<'a> Default for VM<'a> {
@@ -42,6 +46,9 @@ impl<'a> Default for VM<'a> {
         Self {
             heap: Default::default(),
             variables: HashMap::with_capacity(512),
+            last_popped: None,
+            error: None,
+            line: 0,
         }
     }
 }
@@ -71,24 +78,59 @@ impl<'a> VM<'a> {
                     self.push(x);
                 }
                 Instruction::Pop => {
-                    self.heap.pop();
+                    self.last_popped = Some(self.heap.pop());
                 }
                 Instruction::Move((from, to)) => {
-                    self.heap.value[to] = self.heap.value.get(from)
-                        .expect("Move not in range").clone();
+                    self.heap.value[to] = self
+                        .heap
+                        .value
+                        .get(from)
+                        .expect("Move not in range")
+                        .clone();
                 }
                 Instruction::MovePush(from) => {
-                    self.push(self.heap.value.get(from)
-                        .expect("Move not in range").clone());
+                    self.push(
+                        self.heap
+                            .value
+                            .get(from)
+                            .expect("Move not in range")
+                            .clone(),
+                    );
                 }
                 Instruction::MoveLast => {
                     self.push(self.heap.value.last().expect("Empty heap").clone());
                 }
                 Instruction::MoveVar(name) => {
-                    self.push(self.get_variable(name).expect("Add error message").clone());
+                    if let Some(m) = self.get_variable(name).cloned() {
+                        self.push(m);
+                    } else {
+                        self.error = Some(ErrorType::UndefinedVariable(name));
+                        return;
+                    }
                 }
                 Instruction::Var(x) => {
                     self.define_variable(x);
+                }
+
+                Instruction::BinaryOperator(x) => {
+                    // b x a
+                    let a = self.heap.pop();
+                    let b = self.heap.pop();
+                    let res = b.apply_operator(x, &a);
+                    if let Some(y) = res {
+                        self.push(y);
+                    } else {
+                        self.error = Some(ErrorType::InvalidBinaryOperation(
+                            b.value_type(),
+                            x,
+                            a.value_type(),
+                        ));
+                        return;
+                    }
+                }
+
+                Instruction::SetLine(x) => {
+                    self.line = x;
                 }
             }
         }
@@ -99,8 +141,9 @@ impl<'a> VM<'a> {
 mod tests {
     use num::BigInt;
 
+    use crate::glacier_vm::error::ErrorType;
     use crate::glacier_vm::instructions::Instruction::*;
-    use crate::glacier_vm::value::Value;
+    use crate::glacier_vm::value::{Value, ValueType};
     use crate::glacier_vm::vm::VM;
 
     #[test]
@@ -130,5 +173,55 @@ mod tests {
         ]);
 
         assert_eq!(vm.heap.value.last().unwrap(), &Value::Int(123454321));
+    }
+
+    #[test]
+    fn variables() {
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            Push(Value::Int(123454321)),
+            Var("abc"),
+            MoveVar("abc"),
+            Pop,
+        ]);
+
+        assert_eq!(vm.last_popped, Some(Value::Int(123454321)));
+        assert!(vm.error.is_none());
+
+        vm.run(vec![MoveVar("bbc"), Pop]);
+
+        assert_eq!(vm.error, Some(ErrorType::UndefinedVariable("bbc")));
+    }
+
+    #[test]
+    fn binop() {
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            Push(Value::Int(-20)),
+            Push(Value::Int(10)),
+            BinaryOperator("+"),
+            Pop,
+        ]);
+
+        assert_eq!(vm.last_popped, Some(Value::Int(-10)));
+        assert!(vm.error.is_none());
+
+        vm.run(vec![
+            Push(Value::Int(-20)),
+            Push(Value::Int(10)),
+            BinaryOperator("???"),
+            Pop,
+        ]);
+
+        assert_eq!(
+            vm.error,
+            Some(ErrorType::InvalidBinaryOperation(
+                ValueType::Int,
+                "???",
+                ValueType::Int
+            ))
+        );
     }
 }

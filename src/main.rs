@@ -4,13 +4,13 @@ use glacier_lang::glacier_vm::vm::VM;
 
 fn main() {
     let code = r#"
-    l = abc = 123454321
-    abc
-    l
+    a = 2356
+    b = 92845
+    a + b + a
     "#;
     let ast = parse(code).unwrap();
 
-    let mut compiler = Compiler::default();
+    let mut compiler = Compiler::new(code);
     compiler.compile(ast);
 
     dbg!(&compiler.result);
@@ -18,7 +18,5 @@ fn main() {
     let mut vm = VM::default();
     vm.run(compiler.result);
 
-    dbg!(&vm.heap);
-    dbg!(&vm.variables);
-    dbg!(vm.get_variable("abc"));
+    dbg!(&vm);
 }

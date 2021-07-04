@@ -3,7 +3,7 @@ pub mod ast;
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::*;
-use pest::Parser;
+use pest::{Parser, Span};
 use pest_derive::*;
 
 use Rule::*;
@@ -309,4 +309,9 @@ mod tests {
             Err(_) => {}
         };
     }
+}
+
+#[inline]
+pub fn span_to_line(source: &str, span: Span) -> usize {
+    source[..span.start()].matches("\n").count()
 }

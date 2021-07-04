@@ -9,4 +9,8 @@ pub enum Instruction<'a> {
     MoveLast,
     MoveVar(&'a str),
     Var(&'a str),
+
+    BinaryOperator(&'a str),
+
+    SetLine(usize),
 }
