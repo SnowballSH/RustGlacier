@@ -1,4 +1,4 @@
-mod ast;
+pub mod ast;
 
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
