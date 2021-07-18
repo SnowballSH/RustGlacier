@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
-use crate::glacier_vm::value::Value;
+use crate::glacier_vm::value::{Value, ApplyOperatorResult};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Heap {
@@ -33,15 +33,15 @@ impl Heap {
 }
 
 #[derive(Clone, Debug)]
-pub struct VM<'a> {
+pub struct VM {
     pub heap: Heap,
     pub variables: HashMap<String, usize>,
     pub last_popped: Option<Value>,
-    pub error: Option<GlacierError<'a>>,
+    pub error: Option<GlacierError>,
     pub line: usize,
 }
 
-impl<'a> Default for VM<'a> {
+impl Default for VM {
     fn default() -> Self {
         Self {
             heap: Default::default(),
@@ -53,7 +53,7 @@ impl<'a> Default for VM<'a> {
     }
 }
 
-impl<'a> VM<'a> {
+impl VM {
     #[inline]
     pub fn push(&mut self, value: Value) {
         self.heap.push(value);
@@ -71,7 +71,7 @@ impl<'a> VM<'a> {
             .and_then(|x| self.heap.value.get(*x))
     }
 
-    pub fn run(&mut self, instructions: Vec<Instruction<'a>>) {
+    pub fn run(&mut self, instructions: Vec<Instruction>) {
         for i in instructions {
             match i {
                 Instruction::Push(x) => {
@@ -104,7 +104,7 @@ impl<'a> VM<'a> {
                     if let Some(m) = self.get_variable(name.to_string()).cloned() {
                         self.push(m);
                     } else {
-                        self.error = Some(ErrorType::UndefinedVariable(name));
+                        self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
                         return;
                     }
                 }
@@ -117,12 +117,15 @@ impl<'a> VM<'a> {
                     let a = self.heap.pop();
                     let b = self.heap.pop();
                     let res = b.apply_operator(x, &a);
-                    if let Some(y) = res {
+                    if let ApplyOperatorResult::Ok(y) = res {
                         self.push(y);
+                    } else if let ApplyOperatorResult::Error(e) = res {
+                        self.error = Some(e);
+                        return;
                     } else {
                         self.error = Some(ErrorType::InvalidBinaryOperation(
                             b.value_type(),
-                            x,
+                            x.to_string(),
                             a.value_type(),
                         ));
                         return;
@@ -141,7 +144,7 @@ impl<'a> VM<'a> {
 mod tests {
     use num::BigInt;
 
-    use crate::glacier_vm::error::ErrorType;
+    use crate::glacier_vm::error::{ErrorType, GlacierError};
     use crate::glacier_vm::instructions::Instruction::*;
     use crate::glacier_vm::value::{Value, ValueType};
     use crate::glacier_vm::vm::VM;
@@ -191,7 +194,7 @@ mod tests {
 
         vm.run(vec![MoveVar("bbc"), Pop]);
 
-        assert_eq!(vm.error, Some(ErrorType::UndefinedVariable("bbc")));
+        assert_eq!(vm.error, Some(ErrorType::UndefinedVariable("bbc".to_string())));
     }
 
     #[test]
@@ -209,6 +212,15 @@ mod tests {
         assert!(vm.error.is_none());
 
         vm.run(vec![
+            Push(Value::Int(10)),
+            Push(Value::Int(0)),
+            BinaryOperator("/"),
+            Pop,
+        ]);
+
+        assert_eq!(vm.error, Some(GlacierError::ZeroDivisionOrModulo));
+
+        vm.run(vec![
             Push(Value::Int(-20)),
             Push(Value::Int(10)),
             BinaryOperator("???"),
@@ -219,7 +231,7 @@ mod tests {
             vm.error,
             Some(ErrorType::InvalidBinaryOperation(
                 ValueType::Int,
-                "???",
+                "???".to_string(),
                 ValueType::Int
             ))
         );

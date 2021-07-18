@@ -1,5 +1,6 @@
 use inner::inner;
 use num::BigInt;
+use crate::glacier_vm::error::GlacierError;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Value {
@@ -46,20 +47,27 @@ pub enum ConvertResult {
     SameType,
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ApplyOperatorResult {
+    Ok(Value),
+    NoSuchOperator,
+    Error(GlacierError),
+}
+
 impl Value {
-    pub fn apply_operator(&self, name: &str, other: &Value) -> Option<Self> {
+    pub fn apply_operator(&self, name: &str, other: &Value) -> ApplyOperatorResult {
         match self {
-            Value::BigInt(_) => None,
+            Value::BigInt(_) => ApplyOperatorResult::NoSuchOperator,
             Value::Int(_) => match name {
                 "+" => {
                     let other_int_try = other.try_convert(ValueType::Int);
 
                     match other_int_try {
-                        ConvertResult::Ok(x) => Some(Value::Int(
+                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::Int(
                             inner!(self, if Value::Int) + inner!(x, if Value::Int),
                         )),
-                        ConvertResult::NotOk => None,
-                        ConvertResult::SameType => Some(Value::Int(
+                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
+                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::Int(
                             inner!(self, if Value::Int) + inner!(other, if Value::Int),
                         )),
                     }
@@ -68,11 +76,11 @@ impl Value {
                     let other_int_try = other.try_convert(ValueType::Int);
 
                     match other_int_try {
-                        ConvertResult::Ok(x) => Some(Value::Int(
+                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::Int(
                             inner!(self, if Value::Int) - inner!(x, if Value::Int),
                         )),
-                        ConvertResult::NotOk => None,
-                        ConvertResult::SameType => Some(Value::Int(
+                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
+                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::Int(
                             inner!(self, if Value::Int) - inner!(other, if Value::Int),
                         )),
                     }
@@ -81,11 +89,11 @@ impl Value {
                     let other_int_try = other.try_convert(ValueType::Int);
 
                     match other_int_try {
-                        ConvertResult::Ok(x) => Some(Value::Int(
+                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::Int(
                             inner!(self, if Value::Int) * inner!(x, if Value::Int),
                         )),
-                        ConvertResult::NotOk => None,
-                        ConvertResult::SameType => Some(Value::Int(
+                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
+                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::Int(
                             inner!(self, if Value::Int) * inner!(other, if Value::Int),
                         )),
                     }
@@ -93,19 +101,29 @@ impl Value {
                 "/" => {
                     let other_int_try = other.try_convert(ValueType::Int);
 
-                    // TODO check for / 0
-
                     match other_int_try {
-                        ConvertResult::Ok(x) => Some(Value::Int(
-                            inner!(self, if Value::Int) / inner!(x, if Value::Int),
-                        )),
-                        ConvertResult::NotOk => None,
-                        ConvertResult::SameType => Some(Value::Int(
-                            inner!(self, if Value::Int) / inner!(other, if Value::Int),
-                        )),
+                        ConvertResult::Ok(x) => {
+                            let o = inner!(x, if Value::Int);
+                            if o == 0 {
+                                return ApplyOperatorResult::Error(GlacierError::ZeroDivisionOrModulo);
+                            }
+                            ApplyOperatorResult::Ok(Value::Int(
+                                inner!(self, if Value::Int) / o,
+                            ))
+                        }
+                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
+                        ConvertResult::SameType => {
+                            let o = *inner!(other, if Value::Int);
+                            if o == 0 {
+                                return ApplyOperatorResult::Error(GlacierError::ZeroDivisionOrModulo);
+                            }
+                            ApplyOperatorResult::Ok(Value::Int(
+                                inner!(self, if Value::Int) / o,
+                            ))
+                        },
                     }
                 }
-                _ => None,
+                _ => ApplyOperatorResult::NoSuchOperator,
             },
         }
     }
@@ -134,8 +152,9 @@ impl Value {
 
 #[cfg(test)]
 mod tests {
-    use crate::glacier_vm::value::{ConvertResult, Value, ValueType};
     use num::BigInt;
+
+    use crate::glacier_vm::value::{ApplyOperatorResult, ConvertResult, Value, ValueType};
 
     #[test]
     fn test_operator() {
@@ -146,7 +165,7 @@ mod tests {
             b.try_convert(ValueType::BigInt),
             ConvertResult::Ok(Value::BigInt(BigInt::from(8)))
         );
-        assert_eq!(a.apply_operator("+", &b), Some(Value::Int(14)));
-        assert_eq!(a.apply_operator("???", &b), None);
+        assert_eq!(a.apply_operator("+", &b), ApplyOperatorResult::Ok(Value::Int(14)));
+        assert_eq!(a.apply_operator("???", &b), ApplyOperatorResult::NoSuchOperator);
     }
 }

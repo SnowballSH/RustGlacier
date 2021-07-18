@@ -1,13 +1,14 @@
 use crate::glacier_vm::value::ValueType;
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 #[repr(u8)]
-pub enum ErrorType<'a> {
-    UndefinedVariable(&'a str),
-    InvalidBinaryOperation(ValueType, &'a str, ValueType),
+pub enum ErrorType {
+    UndefinedVariable(String),
+    InvalidBinaryOperation(ValueType, String, ValueType),
+    ZeroDivisionOrModulo,
 }
 
-impl <'a> ErrorType<'a> {
+impl ErrorType {
     pub fn to_string(&self) -> String {
         match self {
             ErrorType::UndefinedVariable(name) => {
@@ -16,8 +17,11 @@ impl <'a> ErrorType<'a> {
             ErrorType::InvalidBinaryOperation(a, o, b) => {
                 format!("Invalid Binary Operation: {} {} {}", a.to_string(), o, b.to_string())
             }
+            ErrorType::ZeroDivisionOrModulo => {
+                format!("Division or Modulo by Zero")
+            }
         }
     }
 }
 
-pub type GlacierError<'a> = ErrorType<'a>;
+pub type GlacierError = ErrorType;
