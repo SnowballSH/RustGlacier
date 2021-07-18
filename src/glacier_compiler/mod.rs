@@ -1,4 +1,4 @@
-use crate::glacier_parser::ast::*;
+use crate::glacier_parser::ast::{Program, Statement, Expression};
 use crate::glacier_parser::span_to_line;
 use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::value::Value::Int;
@@ -37,24 +37,24 @@ impl<'a> Compiler<'a> {
         match expr {
             Expression::Int(x) => {
                 self.result
-                    .push(Instruction::SetLine(span_to_line(self.source, x.pos)));
+                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
                 self.result.push(Instruction::Push(Int(x.value as i64)));
             }
             Expression::SetVar(x) => {
                 self.result
-                    .push(Instruction::SetLine(span_to_line(self.source, x.pos)));
+                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
                 self.compile_expression(x.value);
                 self.result.push(Instruction::Var(x.name));
                 self.result.push(Instruction::MoveLast);
             }
             Expression::GetVar(x) => {
                 self.result
-                    .push(Instruction::SetLine(span_to_line(self.source, x.pos)));
+                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
                 self.result.push(Instruction::MoveVar(x.name));
             }
             Expression::Infix(x) => {
                 self.result
-                    .push(Instruction::SetLine(span_to_line(self.source, x.pos)));
+                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
                 self.compile_expression(x.left);
                 self.compile_expression(x.right);
                 self.result.push(Instruction::BinaryOperator(x.operator));

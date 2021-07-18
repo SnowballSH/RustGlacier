@@ -35,7 +35,7 @@ impl Heap {
 #[derive(Clone, Debug)]
 pub struct VM<'a> {
     pub heap: Heap,
-    pub variables: HashMap<&'a str, usize>,
+    pub variables: HashMap<String, usize>,
     pub last_popped: Option<Value>,
     pub error: Option<GlacierError<'a>>,
     pub line: usize,
@@ -60,14 +60,14 @@ impl<'a> VM<'a> {
     }
 
     #[inline]
-    pub fn define_variable(&mut self, name: &'a str) {
+    pub fn define_variable(&mut self, name: String) {
         self.variables.insert(name, self.heap.length - 1);
     }
 
     #[inline]
-    pub fn get_variable(&self, name: &'a str) -> Option<&Value> {
+    pub fn get_variable(&self, name: String) -> Option<&Value> {
         self.variables
-            .get(name)
+            .get(&name)
             .and_then(|x| self.heap.value.get(*x))
     }
 
@@ -101,7 +101,7 @@ impl<'a> VM<'a> {
                     self.push(self.heap.value.last().expect("Empty heap").clone());
                 }
                 Instruction::MoveVar(name) => {
-                    if let Some(m) = self.get_variable(name).cloned() {
+                    if let Some(m) = self.get_variable(name.to_string()).cloned() {
                         self.push(m);
                     } else {
                         self.error = Some(ErrorType::UndefinedVariable(name));
@@ -109,7 +109,7 @@ impl<'a> VM<'a> {
                     }
                 }
                 Instruction::Var(x) => {
-                    self.define_variable(x);
+                    self.define_variable(x.to_string());
                 }
 
                 Instruction::BinaryOperator(x) => {
@@ -149,12 +149,12 @@ mod tests {
     #[test]
     fn basic_vm() {
         let mut vm = VM::default();
-        assert!(vm.get_variable("abcd").is_none());
+        assert!(vm.get_variable("abcd".to_string()).is_none());
 
         let number = Value::BigInt(BigInt::from(12345678987654321_i128));
         vm.push(number.clone());
-        vm.define_variable("abcd");
-        assert_eq!(vm.get_variable("abcd"), Some(&number));
+        vm.define_variable("abcd".to_string());
+        assert_eq!(vm.get_variable("abcd".to_string()), Some(&number));
     }
 
     #[test]

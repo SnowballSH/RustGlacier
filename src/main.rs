@@ -1,22 +1,98 @@
+use std::{io, thread};
+use std::collections::HashMap;
+use std::env::args;
+use std::fs::File;
+use std::io::Read;
+
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
-use glacier_lang::glacier_vm::vm::VM;
+use glacier_lang::glacier_vm::vm::{Heap, VM};
+
+fn get_input() -> String {
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(_goes_into_input_above) => {}
+        Err(_no_updates_is_fine) => {}
+    }
+    input.trim_end().to_string()
+}
+
+fn cli() {
+    let argv: Vec<String> = args().collect();
+
+    if argv.len() < 2 {
+        let mut heap = Heap::default();
+        let mut vars = HashMap::with_capacity(128);
+
+        println!(
+            "Welcome to Glacier repl. Type :quit to quit.",
+        );
+
+        loop {
+            let ip = get_input();
+            if ip.trim() == ":quit" {
+                break;
+            }
+
+            let ast = parse(&ip);
+            if let Ok(ast) = ast {
+                let mut compiler = Compiler::new(&ip);
+                compiler.compile(ast);
+                let inst = compiler.result.clone();
+
+                let mut vm = VM::default();
+
+                vm.heap = heap.clone();
+                vm.variables = vars.clone();
+
+                vm.run(inst);
+                if let Some(x) = &vm.error {
+                    eprintln!("Runtime Error: {}", x.to_string());
+                } else if let Some(l) = &vm.last_popped {
+                    println!("{}", l.to_string());
+                    heap = vm.heap;
+                    vars = vm.variables;
+                }
+            } else if let Err(e) = ast {
+                eprintln!("Parsing Error: {}", e);
+            }
+        }
+        return;
+    }
+
+    let filename = &argv[1];
+    let mut file = File::open(filename).expect("Unable to open the file");
+    let mut contents = vec![];
+    file.read_to_end(&mut contents)
+        .expect("Unable to read the file");
+
+    let code = String::from_utf8(contents).unwrap();
+
+    let ast = parse(&*code);
+    if let Ok(ast) = ast {
+        let mut compiler = Compiler::new(&code);
+        compiler.compile(ast);
+        let inst = compiler.result;
+
+        let mut vm = VM::default();
+
+        vm.run(inst);
+        if let Some(x) = &vm.error {
+            eprintln!("Runtime Error: {}", x.to_string());
+        }
+    } else if let Err(e) = ast {
+        eprintln!("Parsing Error: {}", e);
+    }
+}
+
+static STACK_SIZE: usize = 1 << 23;
 
 fn main() {
-    let code = r#"
-    a = 2356
-    b = 92845
-    a + b + a
-    "#;
-    let ast = parse(code).unwrap();
+    let child = thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .name(format!("Glacier Programming Language"))
+        .spawn(cli)
+        .unwrap();
 
-    let mut compiler = Compiler::new(code);
-    compiler.compile(ast);
-
-    dbg!(&compiler.result);
-
-    let mut vm = VM::default();
-    vm.run(compiler.result);
-
-    dbg!(&vm);
+    child.join().unwrap();
 }

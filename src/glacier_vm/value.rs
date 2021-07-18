@@ -7,10 +7,36 @@ pub enum Value {
     Int(i64),
 }
 
+impl Value {
+    pub fn to_string(&self) -> String {
+        match self {
+            Value::BigInt(x) => {
+                x.to_string()
+            }
+            Value::Int(x) => {
+                x.to_string()
+            }
+        }
+    }
+}
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ValueType {
     BigInt,
     Int,
+}
+
+impl ValueType {
+    pub fn to_string(&self) -> String {
+        match self {
+            ValueType::BigInt => {
+                format!("BigInt")
+            }
+            ValueType::Int => {
+                format!("Integer")
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -35,6 +61,47 @@ impl Value {
                         ConvertResult::NotOk => None,
                         ConvertResult::SameType => Some(Value::Int(
                             inner!(self, if Value::Int) + inner!(other, if Value::Int),
+                        )),
+                    }
+                }
+                "-" => {
+                    let other_int_try = other.try_convert(ValueType::Int);
+
+                    match other_int_try {
+                        ConvertResult::Ok(x) => Some(Value::Int(
+                            inner!(self, if Value::Int) - inner!(x, if Value::Int),
+                        )),
+                        ConvertResult::NotOk => None,
+                        ConvertResult::SameType => Some(Value::Int(
+                            inner!(self, if Value::Int) - inner!(other, if Value::Int),
+                        )),
+                    }
+                }
+                "*" => {
+                    let other_int_try = other.try_convert(ValueType::Int);
+
+                    match other_int_try {
+                        ConvertResult::Ok(x) => Some(Value::Int(
+                            inner!(self, if Value::Int) * inner!(x, if Value::Int),
+                        )),
+                        ConvertResult::NotOk => None,
+                        ConvertResult::SameType => Some(Value::Int(
+                            inner!(self, if Value::Int) * inner!(other, if Value::Int),
+                        )),
+                    }
+                }
+                "/" => {
+                    let other_int_try = other.try_convert(ValueType::Int);
+
+                    // TODO check for / 0
+
+                    match other_int_try {
+                        ConvertResult::Ok(x) => Some(Value::Int(
+                            inner!(self, if Value::Int) / inner!(x, if Value::Int),
+                        )),
+                        ConvertResult::NotOk => None,
+                        ConvertResult::SameType => Some(Value::Int(
+                            inner!(self, if Value::Int) / inner!(other, if Value::Int),
                         )),
                     }
                 }
