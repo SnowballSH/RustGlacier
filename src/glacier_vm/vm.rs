@@ -128,8 +128,8 @@ impl VM {
 
                 Instruction::BinaryOperator(x) => {
                     // b x a
-                    let a = self.heap.pop();
-                    let b = self.heap.pop();
+                    let a = self.stack.pop();
+                    let b = self.stack.pop();
                     let res = b.apply_operator(x, &a);
                     if let ApplyOperatorResult::Ok(y) = res {
                         self.push(y);

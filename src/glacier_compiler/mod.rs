@@ -66,7 +66,9 @@ impl<'a> Compiler<'a> {
             Expression::Infix(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.left);
+                self.result.push(Instruction::MoveLastToStack);
                 self.compile_expression(x.right);
+                self.result.push(Instruction::MoveLastToStack);
                 self.result.push(Instruction::BinaryOperator(x.operator));
             }
             Expression::Call(mut x) => {
