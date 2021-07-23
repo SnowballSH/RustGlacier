@@ -12,5 +12,8 @@ pub enum Instruction<'a> {
 
     BinaryOperator(&'a str),
 
+    Call(usize),
+    MoveLastToStack,
+
     SetLine(usize),
 }

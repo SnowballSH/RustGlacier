@@ -6,6 +6,7 @@ pub enum ErrorType {
     UndefinedVariable(String),
     InvalidBinaryOperation(ValueType, String, ValueType),
     ZeroDivisionOrModulo,
+    NotCallable(ValueType),
 }
 
 impl ErrorType {
@@ -19,6 +20,9 @@ impl ErrorType {
             }
             ErrorType::ZeroDivisionOrModulo => {
                 format!("Division or Modulo by Zero")
+            }
+            ErrorType::NotCallable(t) => {
+                format!("Type {:?} is not callable", t)
             }
         }
     }

@@ -1,4 +1,6 @@
-use crate::glacier_parser::ast::{Program, Statement, Expression};
+use pest::Span;
+
+use crate::glacier_parser::ast::{Expression, Program, Statement};
 use crate::glacier_parser::span_to_line;
 use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::value::Value::Int;
@@ -7,6 +9,7 @@ use crate::glacier_vm::value::Value::Int;
 pub struct Compiler<'a> {
     pub source: &'a str,
     pub result: Vec<Instruction<'a>>,
+    last_line: usize,
 }
 
 impl<'a> Compiler<'a> {
@@ -14,7 +17,18 @@ impl<'a> Compiler<'a> {
         Self {
             source,
             result: Vec::with_capacity(64),
+            last_line: 0,
         }
+    }
+
+    fn update_line(&mut self, pos: Span) {
+        let l = span_to_line(&*self.source, pos);
+        if self.last_line == l {
+            return;
+        }
+        self.last_line = l;
+        self.result
+            .push(Instruction::SetLine(l));
     }
 
     pub fn compile(&mut self, ast: Program<'a>) {
@@ -36,28 +50,36 @@ impl<'a> Compiler<'a> {
     pub fn compile_expression(&mut self, expr: Expression<'a>) {
         match expr {
             Expression::Int(x) => {
-                self.result
-                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
+                self.update_line(x.pos);
                 self.result.push(Instruction::Push(Int(x.value as i64)));
             }
             Expression::SetVar(x) => {
-                self.result
-                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
+                self.update_line(x.pos);
                 self.compile_expression(x.value);
                 self.result.push(Instruction::Var(x.name));
                 self.result.push(Instruction::MoveLast);
             }
             Expression::GetVar(x) => {
-                self.result
-                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
+                self.update_line(x.pos);
                 self.result.push(Instruction::MoveVar(x.name));
             }
             Expression::Infix(x) => {
-                self.result
-                    .push(Instruction::SetLine(span_to_line(&*self.source, x.pos)));
+                self.update_line(x.pos);
                 self.compile_expression(x.left);
                 self.compile_expression(x.right);
                 self.result.push(Instruction::BinaryOperator(x.operator));
+            }
+            Expression::Call(mut x) => {
+                self.update_line(x.pos);
+                x.arguments.reverse();
+                let mut k = 0;
+                for m in x.arguments {
+                    self.compile_expression(m);
+                    self.result.push(Instruction::MoveLastToStack);
+                    k += 1;
+                }
+                self.compile_expression(x.callee);
+                self.result.push(Instruction::Call(k));
             }
             _ => unimplemented!(),
         }

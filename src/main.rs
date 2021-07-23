@@ -7,6 +7,7 @@ use std::io::Read;
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
 use glacier_lang::glacier_vm::vm::{Heap, VM};
+use glacier_lang::glacier_vm::value::ValueType;
 
 fn get_input() -> String {
     let mut input = String::new();
@@ -49,7 +50,9 @@ fn cli() {
                 if let Some(x) = &vm.error {
                     eprintln!("Runtime Error: {}", x.to_string());
                 } else if let Some(l) = &vm.last_popped {
-                    println!("{}", l.to_string());
+                    if l.value_type() != ValueType::Null {
+                        println!("{}", l.to_string());
+                    }
                     heap = vm.heap;
                     vars = vm.variables;
                 }

@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use crate::glacier_vm::builtins::get_builtin;
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
-use crate::glacier_vm::value::{Value, ApplyOperatorResult};
+use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Heap {
@@ -35,6 +36,7 @@ impl Heap {
 #[derive(Clone, Debug)]
 pub struct VM {
     pub heap: Heap,
+    pub stack: Heap,
     pub variables: HashMap<String, usize>,
     pub last_popped: Option<Value>,
     pub error: Option<GlacierError>,
@@ -45,6 +47,7 @@ impl Default for VM {
     fn default() -> Self {
         Self {
             heap: Default::default(),
+            stack: Default::default(),
             variables: HashMap::with_capacity(512),
             last_popped: None,
             error: None,
@@ -65,10 +68,21 @@ impl VM {
     }
 
     #[inline]
-    pub fn get_variable(&self, name: String) -> Option<&Value> {
-        self.variables
-            .get(&name)
-            .and_then(|x| self.heap.value.get(*x))
+    pub fn get_variable(&mut self, name: String) -> Option<&Value> {
+        let res = self.variables
+            .get(&name);
+        if let Some(x) = res {
+            return self.heap.value.get(*x);
+        } else {
+            let b = get_builtin(name.clone());
+            if let Some(b) = b {
+                self.push(b);
+                self.define_variable(name.clone());
+                self.get_variable(name.clone())
+            } else {
+                None
+            }
+        }
     }
 
     pub fn run(&mut self, instructions: Vec<Instruction>) {
@@ -130,6 +144,32 @@ impl VM {
                         ));
                         return;
                     }
+                }
+
+                Instruction::Call(x) => {
+                    let callee = self.heap.pop();
+                    let mut arguments = vec![];
+                    for _ in 0..x {
+                        arguments.push(self.stack.pop());
+                    }
+                    let res = callee.call(arguments, &self.heap);
+                    match res {
+                        CallResult::Ok(x) => {
+                            self.push(x);
+                        }
+                        CallResult::NotCallable => {
+                            self.error = Some(ErrorType::NotCallable(callee.value_type()));
+                            return;
+                        }
+                        CallResult::Error(e) => {
+                            self.error = Some(e);
+                            return;
+                        }
+                    }
+                }
+
+                Instruction::MoveLastToStack => {
+                    self.stack.push(self.heap.pop());
                 }
 
                 Instruction::SetLine(x) => {
@@ -232,7 +272,7 @@ mod tests {
             Some(ErrorType::InvalidBinaryOperation(
                 ValueType::Int,
                 "???".to_string(),
-                ValueType::Int
+                ValueType::Int,
             ))
         );
     }

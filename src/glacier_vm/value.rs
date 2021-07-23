@@ -1,30 +1,45 @@
+use std::fmt::{Debug, Formatter};
+use std::fmt;
+
 use inner::inner;
 use num::BigInt;
+
 use crate::glacier_vm::error::GlacierError;
+use crate::glacier_vm::vm::Heap;
+
+#[derive(Clone)]
+pub struct FT(pub fn(this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult);
+
+impl PartialEq for FT {
+    fn eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+impl Eq for FT {}
+
+impl Debug for FT {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str("Native Function")
+    }
+}
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Value {
     BigInt(BigInt),
     Int(i64),
-}
+    NativeFunction(FT),
 
-impl Value {
-    pub fn to_string(&self) -> String {
-        match self {
-            Value::BigInt(x) => {
-                x.to_string()
-            }
-            Value::Int(x) => {
-                x.to_string()
-            }
-        }
-    }
+    Null,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ValueType {
     BigInt,
     Int,
+    NativeFunction,
+
+    Null,
 }
 
 impl ValueType {
@@ -35,6 +50,12 @@ impl ValueType {
             }
             ValueType::Int => {
                 format!("Integer")
+            }
+            ValueType::NativeFunction => {
+                format!("NativeFunction")
+            }
+            ValueType::Null => {
+                format!("Null")
             }
         }
     }
@@ -54,7 +75,31 @@ pub enum ApplyOperatorResult {
     Error(GlacierError),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum CallResult {
+    Ok(Value),
+    NotCallable,
+    Error(GlacierError),
+}
+
 impl Value {
+    pub fn to_string(&self) -> String {
+        match self {
+            Value::BigInt(x) => {
+                x.to_string()
+            }
+            Value::Int(x) => {
+                x.to_string()
+            }
+            Value::NativeFunction(x) => {
+                format!("{:?}", x)
+            }
+            Value::Null => {
+                format!("Null")
+            }
+        }
+    }
+
     pub fn apply_operator(&self, name: &str, other: &Value) -> ApplyOperatorResult {
         match self {
             Value::BigInt(_) => ApplyOperatorResult::NoSuchOperator,
@@ -120,11 +165,12 @@ impl Value {
                             ApplyOperatorResult::Ok(Value::Int(
                                 inner!(self, if Value::Int) / o,
                             ))
-                        },
+                        }
                     }
                 }
                 _ => ApplyOperatorResult::NoSuchOperator,
             },
+            _ => ApplyOperatorResult::NoSuchOperator
         }
     }
 
@@ -133,6 +179,8 @@ impl Value {
         match self {
             Value::BigInt(_) => ValueType::BigInt,
             Value::Int(_) => ValueType::Int,
+            Value::NativeFunction(_) => ValueType::NativeFunction,
+            Value::Null => ValueType::Null,
         }
     }
 
@@ -146,6 +194,17 @@ impl Value {
                 ValueType::BigInt => ConvertResult::Ok(Value::BigInt(BigInt::from(*x))),
                 _ => ConvertResult::NotOk,
             },
+            Value::NativeFunction(_) => ConvertResult::NotOk,
+            Value::Null => ConvertResult::NotOk,
+        }
+    }
+
+    pub fn call(&self, arguments: Vec<Value>, heap: &Heap) -> CallResult {
+        match self {
+            Value::NativeFunction(x) => {
+                x.0(self, arguments, heap)
+            }
+            _ => CallResult::NotCallable
         }
     }
 }
