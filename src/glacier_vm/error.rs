@@ -1,10 +1,11 @@
-use crate::glacier_vm::value::ValueType;
+use crate::glacier_vm::value::{Value, ValueType};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[repr(u8)]
 pub enum ErrorType {
     UndefinedVariable(String),
-    InvalidBinaryOperation(ValueType, String, ValueType),
+    InvalidBinaryOperation(Value, String, Value),
+    InvalidUnaryOperation(Value, String),
     ZeroDivisionOrModulo,
     NotCallable(ValueType),
 }
@@ -16,7 +17,10 @@ impl ErrorType {
                 format!("Undefined Variable: {}", name)
             }
             ErrorType::InvalidBinaryOperation(a, o, b) => {
-                format!("Invalid Binary Operation: {} {} {}", a.to_string(), o, b.to_string())
+                format!("Invalid Binary Operation: {} {} {}", a.to_debug_string(), o, b.to_debug_string())
+            }
+            ErrorType::InvalidUnaryOperation(a, o) => {
+                format!("Invalid Unary Operation: {}{}", o, a.to_debug_string())
             }
             ErrorType::ZeroDivisionOrModulo => {
                 format!("Division or Modulo by Zero")

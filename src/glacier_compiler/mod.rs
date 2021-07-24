@@ -3,7 +3,7 @@ use pest::Span;
 use crate::glacier_parser::ast::{Expression, Program, Statement};
 use crate::glacier_parser::span_to_line;
 use crate::glacier_vm::instructions::Instruction;
-use crate::glacier_vm::value::Value::Int;
+use crate::glacier_vm::value::Value;
 
 #[derive(Debug)]
 pub struct Compiler<'a> {
@@ -51,7 +51,11 @@ impl<'a> Compiler<'a> {
         match expr {
             Expression::Int(x) => {
                 self.update_line(x.pos);
-                self.result.push(Instruction::Push(Int(x.value as i64)));
+                self.result.push(Instruction::Push(Value::Int(x.value as i64)));
+            }
+            Expression::String(x) => {
+                self.update_line(x.pos);
+                self.result.push(Instruction::Push(Value::String(x.value)));
             }
             Expression::SetVar(x) => {
                 self.update_line(x.pos);
@@ -70,6 +74,12 @@ impl<'a> Compiler<'a> {
                 self.compile_expression(x.right);
                 self.result.push(Instruction::MoveLastToStack);
                 self.result.push(Instruction::BinaryOperator(x.operator));
+            }
+            Expression::Prefix(x) => {
+                self.update_line(x.pos);
+                self.compile_expression(x.right);
+                self.result.push(Instruction::MoveLastToStack);
+                self.result.push(Instruction::UnaryOperator(x.operator));
             }
             Expression::Call(mut x) => {
                 self.update_line(x.pos);

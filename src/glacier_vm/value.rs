@@ -1,10 +1,10 @@
 use std::fmt::{Debug, Formatter};
 use std::fmt;
 
-use inner::inner;
 use num::BigInt;
 
 use crate::glacier_vm::error::GlacierError;
+use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
 use crate::glacier_vm::vm::Heap;
 
 #[derive(Clone)]
@@ -29,6 +29,8 @@ pub enum Value {
     BigInt(BigInt),
     Int(i64),
     NativeFunction(FT),
+    String(String),
+    Boolean(bool),
 
     Null,
 }
@@ -38,6 +40,8 @@ pub enum ValueType {
     BigInt,
     Int,
     NativeFunction,
+    String,
+    Boolean,
 
     Null,
 }
@@ -53,6 +57,12 @@ impl ValueType {
             }
             ValueType::NativeFunction => {
                 format!("NativeFunction")
+            }
+            ValueType::String => {
+                format!("String")
+            }
+            ValueType::Boolean => {
+                format!("Boolean")
             }
             ValueType::Null => {
                 format!("Null")
@@ -94,96 +104,49 @@ impl Value {
             Value::NativeFunction(x) => {
                 format!("{:?}", x)
             }
+            Value::String(x) => {
+                x.clone()
+            }
+            Value::Boolean(x) => {
+                x.to_string()
+            }
             Value::Null => {
                 format!("Null")
             }
         }
     }
 
-    pub fn apply_operator(&self, name: &str, other: &Value) -> ApplyOperatorResult {
+    pub fn to_debug_string(&self) -> String {
         match self {
-            Value::BigInt(_) => ApplyOperatorResult::NoSuchOperator,
-            Value::Int(_) => match name {
-                "+" => {
-                    let other_int_try = other.try_convert(ValueType::Int);
-
-                    match other_int_try {
-                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::Int(
-                            inner!(self, if Value::Int) + inner!(x, if Value::Int),
-                        )),
-                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
-                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::Int(
-                            inner!(self, if Value::Int) + inner!(other, if Value::Int),
-                        )),
-                    }
-                }
-                "-" => {
-                    let other_int_try = other.try_convert(ValueType::Int);
-
-                    match other_int_try {
-                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::Int(
-                            inner!(self, if Value::Int) - inner!(x, if Value::Int),
-                        )),
-                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
-                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::Int(
-                            inner!(self, if Value::Int) - inner!(other, if Value::Int),
-                        )),
-                    }
-                }
-                "*" => {
-                    let other_int_try = other.try_convert(ValueType::Int);
-
-                    match other_int_try {
-                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::Int(
-                            inner!(self, if Value::Int) * inner!(x, if Value::Int),
-                        )),
-                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
-                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::Int(
-                            inner!(self, if Value::Int) * inner!(other, if Value::Int),
-                        )),
-                    }
-                }
-                "/" => {
-                    let other_int_try = other.try_convert(ValueType::Int);
-
-                    match other_int_try {
-                        ConvertResult::Ok(x) => {
-                            let o = inner!(x, if Value::Int);
-                            if o == 0 {
-                                return ApplyOperatorResult::Error(GlacierError::ZeroDivisionOrModulo);
-                            }
-                            ApplyOperatorResult::Ok(Value::Int(
-                                inner!(self, if Value::Int) / o,
-                            ))
-                        }
-                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
-                        ConvertResult::SameType => {
-                            let o = *inner!(other, if Value::Int);
-                            if o == 0 {
-                                return ApplyOperatorResult::Error(GlacierError::ZeroDivisionOrModulo);
-                            }
-                            ApplyOperatorResult::Ok(Value::Int(
-                                inner!(self, if Value::Int) / o,
-                            ))
-                        }
-                    }
-                }
-                _ => ApplyOperatorResult::NoSuchOperator,
-            },
-            _ => ApplyOperatorResult::NoSuchOperator
+            Value::String(x) => {
+                format!("\"{}\"", x)
+            }
+            _ => self.to_string()
         }
     }
 
+    pub fn apply_operator(&self, name: &str, other: &Value) -> ApplyOperatorResult {
+        apply_operator(self, name, other)
+    }
+
+    pub fn apply_unary_operator(&self, name: &str) -> ApplyOperatorResult {
+        apply_unary_operator(self, name)
+    }
+
     #[inline]
+    /// Get the type of object
     pub fn value_type(&self) -> ValueType {
         match self {
             Value::BigInt(_) => ValueType::BigInt,
             Value::Int(_) => ValueType::Int,
             Value::NativeFunction(_) => ValueType::NativeFunction,
+            Value::String(_) => ValueType::String,
+            Value::Boolean(_) => ValueType::Boolean,
             Value::Null => ValueType::Null,
         }
     }
 
+    /// Try to convert self -> into
     pub fn try_convert(&self, into: ValueType) -> ConvertResult {
         if self.value_type() == into {
             return ConvertResult::SameType;
@@ -195,6 +158,8 @@ impl Value {
                 _ => ConvertResult::NotOk,
             },
             Value::NativeFunction(_) => ConvertResult::NotOk,
+            Value::String(_) => ConvertResult::NotOk,
+            Value::Boolean(_) => ConvertResult::NotOk,
             Value::Null => ConvertResult::NotOk,
         }
     }

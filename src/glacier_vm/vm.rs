@@ -138,9 +138,26 @@ impl VM {
                         return;
                     } else {
                         self.error = Some(ErrorType::InvalidBinaryOperation(
-                            b.value_type(),
+                            b,
                             x.to_string(),
-                            a.value_type(),
+                            a,
+                        ));
+                        return;
+                    }
+                }
+
+                Instruction::UnaryOperator(x) => {
+                    let a = self.stack.pop();
+                    let res = a.apply_unary_operator(x);
+                    if let ApplyOperatorResult::Ok(y) = res {
+                        self.push(y);
+                    } else if let ApplyOperatorResult::Error(e) = res {
+                        self.error = Some(e);
+                        return;
+                    } else {
+                        self.error = Some(ErrorType::InvalidUnaryOperation(
+                            a,
+                            x.to_string(),
                         ));
                         return;
                     }
@@ -186,7 +203,7 @@ mod tests {
 
     use crate::glacier_vm::error::{ErrorType, GlacierError};
     use crate::glacier_vm::instructions::Instruction::*;
-    use crate::glacier_vm::value::{Value, ValueType};
+    use crate::glacier_vm::value::Value;
     use crate::glacier_vm::vm::VM;
 
     #[test]
@@ -243,7 +260,9 @@ mod tests {
 
         vm.run(vec![
             Push(Value::Int(-20)),
+            MoveLastToStack,
             Push(Value::Int(10)),
+            MoveLastToStack,
             BinaryOperator("+"),
             Pop,
         ]);
@@ -251,18 +270,26 @@ mod tests {
         assert_eq!(vm.last_popped, Some(Value::Int(-10)));
         assert!(vm.error.is_none());
 
+        let mut vm = VM::default();
+
         vm.run(vec![
             Push(Value::Int(10)),
+            MoveLastToStack,
             Push(Value::Int(0)),
+            MoveLastToStack,
             BinaryOperator("/"),
             Pop,
         ]);
 
         assert_eq!(vm.error, Some(GlacierError::ZeroDivisionOrModulo));
 
+        let mut vm = VM::default();
+
         vm.run(vec![
             Push(Value::Int(-20)),
+            MoveLastToStack,
             Push(Value::Int(10)),
+            MoveLastToStack,
             BinaryOperator("???"),
             Pop,
         ]);
@@ -270,9 +297,38 @@ mod tests {
         assert_eq!(
             vm.error,
             Some(ErrorType::InvalidBinaryOperation(
-                ValueType::Int,
+                Value::Int(-20),
                 "???".to_string(),
-                ValueType::Int,
+                Value::Int(10),
+            ))
+        );
+
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            Push(Value::Int(-5)),
+            MoveLastToStack,
+            UnaryOperator("-"),
+            Pop,
+        ]);
+
+        assert_eq!(vm.last_popped, Some(Value::Int(5)));
+        assert!(vm.error.is_none());
+
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            Push(Value::Int(-5)),
+            MoveLastToStack,
+            UnaryOperator("???"),
+            Pop,
+        ]);
+
+        assert_eq!(
+            vm.error,
+            Some(ErrorType::InvalidUnaryOperation(
+                Value::Int(-5),
+                "???".to_string(),
             ))
         );
     }

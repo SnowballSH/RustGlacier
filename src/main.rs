@@ -2,15 +2,17 @@ use std::{io, thread};
 use std::collections::HashMap;
 use std::env::args;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
-use glacier_lang::glacier_vm::vm::{Heap, VM};
 use glacier_lang::glacier_vm::value::ValueType;
+use glacier_lang::glacier_vm::vm::{Heap, VM};
 
 fn get_input() -> String {
     let mut input = String::new();
+    print!("> ");
+    io::stdout().flush().expect("flush failed!");
     match io::stdin().read_line(&mut input) {
         Ok(_goes_into_input_above) => {}
         Err(_no_updates_is_fine) => {}
@@ -51,7 +53,7 @@ fn cli() {
                     eprintln!("Runtime Error: {}", x.to_string());
                 } else if let Some(l) = &vm.last_popped {
                     if l.value_type() != ValueType::Null {
-                        println!("{}", l.to_string());
+                        println!("{}", l.to_debug_string());
                     }
                     heap = vm.heap;
                     vars = vm.variables;

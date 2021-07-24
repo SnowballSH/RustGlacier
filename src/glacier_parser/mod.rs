@@ -1,14 +1,14 @@
-pub mod ast;
-
 use lazy_static::*;
+use pest::{Parser, Span};
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::*;
-use pest::{Parser, Span};
 use pest_derive::*;
 
 use Rule::*;
 
 use crate::glacier_parser::ast::*;
+
+pub mod ast;
 
 lazy_static! {
     static ref PREC_CLIMBER: PrecClimber<Rule> = {

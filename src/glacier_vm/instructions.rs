@@ -11,6 +11,7 @@ pub enum Instruction<'a> {
     Var(&'a str),
 
     BinaryOperator(&'a str),
+    UnaryOperator(&'a str),
 
     Call(usize),
     MoveLastToStack,

@@ -20,6 +20,8 @@ lazy_static! {
 pub fn get_builtin(name: String) -> Option<Value> {
     match name.as_str() {
         "print" => Some((*PRINT_FN).clone()),
+        "true" => Some(Value::Boolean(true)),
+        "false" => Some(Value::Boolean(false)),
         _ => None
     }
 }
