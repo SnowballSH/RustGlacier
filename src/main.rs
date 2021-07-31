@@ -43,6 +43,8 @@ fn cli() {
                 compiler.compile(ast);
                 let inst = compiler.result.clone();
 
+                // dbg!(&inst);
+
                 let mut vm = VM::default();
 
                 vm.heap = heap.clone();

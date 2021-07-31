@@ -1,0 +1,9 @@
+a = 3
+b = 4
+
+if a * b + 5 != 17
+    print("There is no math")
+else
+    print("Yep, and the result is:")
+    print(a * b + 5)
+end

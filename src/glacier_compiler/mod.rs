@@ -81,7 +81,8 @@ impl<'a> Compiler<'a> {
                 self.result.push(Instruction::MoveLastToStack);
                 self.result.push(Instruction::UnaryOperator(x.operator));
             }
-            Expression::Call(mut x) => {
+            Expression::Call(x) => {
+                let mut x = x.clone();
                 self.update_line(x.pos);
                 x.arguments.reverse();
                 let mut k = 0;
@@ -92,6 +93,30 @@ impl<'a> Compiler<'a> {
                 }
                 self.compile_expression(x.callee);
                 self.result.push(Instruction::Call(k));
+            }
+            Expression::If(x) => {
+                self.update_line(x.pos);
+                self.compile_expression(x.cond);
+                let pos1 = self.result.len();
+                self.result.push(Instruction::Noop);
+                self.compile(x.body);
+
+                if self.result.last() == Some(&Instruction::Pop) {
+                    self.result.pop();
+                } else {
+                    self.result.push(Instruction::Push(Value::Null));
+                }
+                self.result[pos1] = Instruction::JumpIfFalse(self.result.len());
+                let pos2 = self.result.len();
+                self.result.push(Instruction::Noop);
+                self.compile(x.other);
+
+                if self.result.last() == Some(&Instruction::Pop) {
+                    self.result.pop();
+                } else {
+                    self.result.push(Instruction::Push(Value::Null));
+                }
+                self.result[pos2] = Instruction::Jump(self.result.len() - 1);
             }
             _ => unimplemented!(),
         }

@@ -27,9 +27,9 @@ impl Heap {
     }
 
     pub fn pop(&mut self) -> Value {
-        let r = self.value.pop();
+        let r = self.value.pop().expect("Stack underflow");
         self.length -= 1;
-        r.expect("Stack underflow")
+        r
     }
 }
 
@@ -86,19 +86,25 @@ impl VM {
     }
 
     pub fn run(&mut self, instructions: Vec<Instruction>) {
-        for i in instructions {
+        let mut index = 0;
+        let l = instructions.len();
+        while index < l {
+            let i = &instructions[index];
+
+            // dbg!(&i);
+
             match i {
                 Instruction::Push(x) => {
-                    self.push(x);
+                    self.push(x.clone());
                 }
                 Instruction::Pop => {
                     self.last_popped = Some(self.heap.pop());
                 }
                 Instruction::Move((from, to)) => {
-                    self.heap.value[to] = self
+                    self.heap.value[*to] = self
                         .heap
                         .value
-                        .get(from)
+                        .get(*from)
                         .expect("Move not in range")
                         .clone();
                 }
@@ -106,7 +112,7 @@ impl VM {
                     self.push(
                         self.heap
                             .value
-                            .get(from)
+                            .get(*from)
                             .expect("Move not in range")
                             .clone(),
                     );
@@ -166,7 +172,7 @@ impl VM {
                 Instruction::Call(x) => {
                     let callee = self.heap.pop();
                     let mut arguments = vec![];
-                    for _ in 0..x {
+                    for _ in 0..*x {
                         arguments.push(self.stack.pop());
                     }
                     let res = callee.call(arguments, &self.heap);
@@ -185,14 +191,27 @@ impl VM {
                     }
                 }
 
+                Instruction::Jump(x) => {
+                    index = *x;
+                }
+
+                Instruction::JumpIfFalse(x) => {
+                    if !self.heap.pop().is_truthy() {
+                        index = *x;
+                    }
+                }
+
                 Instruction::MoveLastToStack => {
                     self.stack.push(self.heap.pop());
                 }
 
+                Instruction::Noop => {}
+
                 Instruction::SetLine(x) => {
-                    self.line = x;
+                    self.line = *x;
                 }
             }
+            index += 1;
         }
     }
 }
@@ -331,5 +350,10 @@ mod tests {
                 "???".to_string(),
             ))
         );
+    }
+
+    #[test]
+    fn if_else() {
+
     }
 }

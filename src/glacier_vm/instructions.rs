@@ -15,6 +15,11 @@ pub enum Instruction<'a> {
 
     Call(usize),
     MoveLastToStack,
+    
+    Jump(usize),
+    JumpIfFalse(usize),
+    
+    Noop,
 
     SetLine(usize),
 }

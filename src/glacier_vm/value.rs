@@ -125,6 +125,19 @@ impl Value {
         }
     }
 
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Int(x) => {
+                *x != 0
+            }
+            Value::Boolean(x) => {
+                *x
+            }
+            Value::Null => false,
+            _ => true
+        }
+    }
+
     pub fn apply_operator(&self, name: &str, other: &Value) -> ApplyOperatorResult {
         apply_operator(self, name, other)
     }
