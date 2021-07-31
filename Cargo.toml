@@ -2,6 +2,7 @@
 name = "glacier-lang"
 version = "0.1.0"
 edition = "2018"
+default-run = "glacier-lang"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,3 +12,10 @@ pest = "2.1.3"
 pest_derive = "2.1.0"
 num = "0.4.0"
 inner = "0.1.1"
+
+[profile.dev]
+opt-level = 1
+incremental = true
+
+[profile.release]
+incremental = true

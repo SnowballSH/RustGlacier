@@ -1,5 +1,5 @@
-use std::fmt::{Debug, Formatter};
 use std::fmt;
+use std::fmt::{Debug, Formatter};
 
 use num::BigInt;
 
@@ -95,21 +95,13 @@ pub enum CallResult {
 impl Value {
     pub fn to_string(&self) -> String {
         match self {
-            Value::BigInt(x) => {
-                x.to_string()
-            }
-            Value::Int(x) => {
-                x.to_string()
-            }
+            Value::BigInt(x) => x.to_string(),
+            Value::Int(x) => x.to_string(),
             Value::NativeFunction(x) => {
                 format!("{:?}", x)
             }
-            Value::String(x) => {
-                x.clone()
-            }
-            Value::Boolean(x) => {
-                x.to_string()
-            }
+            Value::String(x) => x.clone(),
+            Value::Boolean(x) => x.to_string(),
             Value::Null => {
                 format!("Null")
             }
@@ -121,20 +113,16 @@ impl Value {
             Value::String(x) => {
                 format!("\"{}\"", x)
             }
-            _ => self.to_string()
+            _ => self.to_string(),
         }
     }
 
     pub fn is_truthy(&self) -> bool {
         match self {
-            Value::Int(x) => {
-                *x != 0
-            }
-            Value::Boolean(x) => {
-                *x
-            }
+            Value::Int(x) => *x != 0,
+            Value::Boolean(x) => *x,
             Value::Null => false,
-            _ => true
+            _ => true,
         }
     }
 
@@ -168,21 +156,23 @@ impl Value {
             Value::BigInt(_) => ConvertResult::NotOk,
             Value::Int(x) => match into {
                 ValueType::BigInt => ConvertResult::Ok(Value::BigInt(BigInt::from(*x))),
+                ValueType::Boolean => ConvertResult::Ok(Value::Boolean(*x != 0)),
                 _ => ConvertResult::NotOk,
             },
             Value::NativeFunction(_) => ConvertResult::NotOk,
             Value::String(_) => ConvertResult::NotOk,
-            Value::Boolean(_) => ConvertResult::NotOk,
+            Value::Boolean(x) => match into {
+                ValueType::Int => ConvertResult::Ok(Value::Int(*x as i64)),
+                _ => ConvertResult::NotOk,
+            },
             Value::Null => ConvertResult::NotOk,
         }
     }
 
     pub fn call(&self, arguments: Vec<Value>, heap: &Heap) -> CallResult {
         match self {
-            Value::NativeFunction(x) => {
-                x.0(self, arguments, heap)
-            }
-            _ => CallResult::NotCallable
+            Value::NativeFunction(x) => x.0(self, arguments, heap),
+            _ => CallResult::NotCallable,
         }
     }
 }
@@ -202,7 +192,13 @@ mod tests {
             b.try_convert(ValueType::BigInt),
             ConvertResult::Ok(Value::BigInt(BigInt::from(8)))
         );
-        assert_eq!(a.apply_operator("+", &b), ApplyOperatorResult::Ok(Value::Int(14)));
-        assert_eq!(a.apply_operator("???", &b), ApplyOperatorResult::NoSuchOperator);
+        assert_eq!(
+            a.apply_operator("+", &b),
+            ApplyOperatorResult::Ok(Value::Int(14))
+        );
+        assert_eq!(
+            a.apply_operator("???", &b),
+            ApplyOperatorResult::NoSuchOperator
+        );
     }
 }

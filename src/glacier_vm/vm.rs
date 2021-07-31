@@ -69,8 +69,7 @@ impl VM {
 
     #[inline]
     pub fn get_variable(&mut self, name: String) -> Option<&Value> {
-        let res = self.variables
-            .get(&name);
+        let res = self.variables.get(&name);
         if let Some(x) = res {
             return self.heap.value.get(*x);
         } else {
@@ -143,11 +142,7 @@ impl VM {
                         self.error = Some(e);
                         return;
                     } else {
-                        self.error = Some(ErrorType::InvalidBinaryOperation(
-                            b,
-                            x.to_string(),
-                            a,
-                        ));
+                        self.error = Some(ErrorType::InvalidBinaryOperation(b, x.to_string(), a));
                         return;
                     }
                 }
@@ -161,10 +156,7 @@ impl VM {
                         self.error = Some(e);
                         return;
                     } else {
-                        self.error = Some(ErrorType::InvalidUnaryOperation(
-                            a,
-                            x.to_string(),
-                        ));
+                        self.error = Some(ErrorType::InvalidUnaryOperation(a, x.to_string()));
                         return;
                     }
                 }
@@ -270,7 +262,10 @@ mod tests {
 
         vm.run(vec![MoveVar("bbc"), Pop]);
 
-        assert_eq!(vm.error, Some(ErrorType::UndefinedVariable("bbc".to_string())));
+        assert_eq!(
+            vm.error,
+            Some(ErrorType::UndefinedVariable("bbc".to_string()))
+        );
     }
 
     #[test]
@@ -353,7 +348,5 @@ mod tests {
     }
 
     #[test]
-    fn if_else() {
-
-    }
+    fn if_else() {}
 }

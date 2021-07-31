@@ -48,7 +48,7 @@ function_params = {
 }
 
 empty_call = {
-    !neq ~ "!"
+    !neq ~ bang
 }
 
 field = {
@@ -85,6 +85,7 @@ gt = { ">" }
 lt = { "<" }
 gteq = { ">=" }
 lteq = { "<=" }
+bang = { "!" }
 
 operators = _{
     add | sub | mul | div | modulo
@@ -92,7 +93,7 @@ operators = _{
 }
 
 prefix_operators = _{
-    add | sub
+    add | sub | bang
 }
 
 infix = _{ expression_inner ~ (operators ~ expression_inner)+ }

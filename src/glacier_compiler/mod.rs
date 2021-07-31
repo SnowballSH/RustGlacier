@@ -27,8 +27,7 @@ impl<'a> Compiler<'a> {
             return;
         }
         self.last_line = l;
-        self.result
-            .push(Instruction::SetLine(l));
+        self.result.push(Instruction::SetLine(l));
     }
 
     pub fn compile(&mut self, ast: Program<'a>) {
@@ -51,7 +50,8 @@ impl<'a> Compiler<'a> {
         match expr {
             Expression::Int(x) => {
                 self.update_line(x.pos);
-                self.result.push(Instruction::Push(Value::Int(x.value as i64)));
+                self.result
+                    .push(Instruction::Push(Value::Int(x.value as i64)));
             }
             Expression::String(x) => {
                 self.update_line(x.pos);

@@ -8,6 +8,7 @@ pub enum ErrorType {
     InvalidUnaryOperation(Value, String),
     ZeroDivisionOrModulo,
     NotCallable(ValueType),
+    ArgumentError(String),
 }
 
 impl ErrorType {
@@ -17,7 +18,12 @@ impl ErrorType {
                 format!("Undefined Variable: {}", name)
             }
             ErrorType::InvalidBinaryOperation(a, o, b) => {
-                format!("Invalid Binary Operation: {} {} {}", a.to_debug_string(), o, b.to_debug_string())
+                format!(
+                    "Invalid Binary Operation: {} {} {}",
+                    a.to_debug_string(),
+                    o,
+                    b.to_debug_string()
+                )
             }
             ErrorType::InvalidUnaryOperation(a, o) => {
                 format!("Invalid Unary Operation: {}{}", o, a.to_debug_string())
@@ -28,6 +34,7 @@ impl ErrorType {
             ErrorType::NotCallable(t) => {
                 format!("Type {:?} is not callable", t)
             }
+            ErrorType::ArgumentError(x) => x.clone(),
         }
     }
 }

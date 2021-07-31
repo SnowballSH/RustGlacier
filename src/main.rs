@@ -1,8 +1,8 @@
-use std::{io, thread};
 use std::collections::HashMap;
 use std::env::args;
 use std::fs::File;
 use std::io::{Read, Write};
+use std::{io, thread};
 
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
@@ -27,9 +27,7 @@ fn cli() {
         let mut heap = Heap::default();
         let mut vars = HashMap::with_capacity(128);
 
-        println!(
-            "Welcome to Glacier repl. Type :quit to quit.",
-        );
+        println!("Welcome to Glacier repl. Type :quit to quit.",);
 
         loop {
             let ip = get_input();
