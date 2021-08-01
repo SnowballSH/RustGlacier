@@ -8,6 +8,8 @@ pub fn apply_operator(self_: &Value, name: &str, other: &Value) -> ApplyOperator
     match name {
         "==" => ApplyOperatorResult::Ok(Value::Boolean(self_ == other)),
         "!=" => ApplyOperatorResult::Ok(Value::Boolean(self_ != other)),
+        "||" => ApplyOperatorResult::Ok(Value::Boolean(self_.is_truthy() || other.is_truthy())),
+        "&&" => ApplyOperatorResult::Ok(Value::Boolean(self_.is_truthy() && other.is_truthy())),
         _ => match self_ {
             Value::Int(i) => match name {
                 "+" => {
@@ -153,6 +155,22 @@ pub fn apply_operator(self_: &Value, name: &str, other: &Value) -> ApplyOperator
                     }
                 }
 
+                _ => ApplyOperatorResult::NoSuchOperator,
+            },
+            Value::String(s) => match name {
+                "+" => {
+                    let other_string_try = other.try_convert(ValueType::String);
+
+                    match other_string_try {
+                        ConvertResult::Ok(x) => ApplyOperatorResult::Ok(Value::String(
+                            s.to_owned() + &*inner!(x, if Value::String),
+                        )),
+                        ConvertResult::NotOk => ApplyOperatorResult::NoSuchOperator,
+                        ConvertResult::SameType => ApplyOperatorResult::Ok(Value::String(
+                            s.to_owned() + &*inner!(other, if Value::String),
+                        )),
+                    }
+                }
                 _ => ApplyOperatorResult::NoSuchOperator,
             },
             _ => ApplyOperatorResult::NoSuchOperator,

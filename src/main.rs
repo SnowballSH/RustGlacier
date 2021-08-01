@@ -41,7 +41,7 @@ fn cli() {
                 compiler.compile(ast);
                 let inst = compiler.result.clone();
 
-                // dbg!(&inst);
+                dbg!(&inst);
 
                 let mut vm = VM::default();
 

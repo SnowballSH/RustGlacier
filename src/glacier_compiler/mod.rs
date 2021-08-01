@@ -106,7 +106,7 @@ impl<'a> Compiler<'a> {
                 } else {
                     self.result.push(Instruction::Push(Value::Null));
                 }
-                self.result[pos1] = Instruction::JumpIfFalse(self.result.len());
+                self.result[pos1] = Instruction::JumpIfFalse(self.result.len() + 1);
                 let pos2 = self.result.len();
                 self.result.push(Instruction::Noop);
                 self.compile(x.other);
@@ -116,8 +116,27 @@ impl<'a> Compiler<'a> {
                 } else {
                     self.result.push(Instruction::Push(Value::Null));
                 }
-                self.result[pos2] = Instruction::Jump(self.result.len() - 1);
+                self.result[pos2] = Instruction::Jump(self.result.len());
             }
+            Expression::While(x) => {
+                self.update_line(x.pos);
+                let org = self.result.len();
+                self.compile_expression(x.cond);
+                let pos = self.result.len();
+                self.result.push(Instruction::Noop);
+                self.compile(x.body);
+                self.result.push(Instruction::Jump(org));
+                self.result[pos] = Instruction::JumpIfFalse(self.result.len() + 1);
+                self.result.push(Instruction::Push(Value::Null));
+            }
+
+            /*
+            Expression::GetInstance(x) => {
+                self.update_line(x.pos);
+                // TODO
+                todo!("do it")
+            }
+             */
             _ => unimplemented!(),
         }
     }

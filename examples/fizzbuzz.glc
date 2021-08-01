@@ -1,0 +1,13 @@
+i = 1
+while i <= 30
+    print(
+        if i % 3 == 0
+            "Fizz"
+        else if i % 5 == 0
+            "Buzz"
+        else if i % 15 == 0
+            "FizzBuzz"
+        else i
+    )
+    i = i + 1
+end

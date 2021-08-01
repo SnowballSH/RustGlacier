@@ -1,49 +1,80 @@
+use std::time::Instant;
+
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
 use glacier_lang::glacier_vm::value::Value;
 use glacier_lang::glacier_vm::vm::VM;
-use std::time::Instant;
 
-const BENCHMARK_CODE: [(&'static str, Value); 4] = [
-    (
-        r#"
+fn main() {
+    let benchmark_code = [
+        (
+            r#"
 a = 4
 a + 5
 "#,
-        Value::Int(9),
-    ),
-    (
-        r#"
+            Value::Int(9),
+        ),
+        (
+            r#"
 a = -5
 b = 30
 (a + b) / 5
 "#,
-        Value::Int(5),
-    ),
-    (
-        r#"
+            Value::Int(5),
+        ),
+        (
+            r#"
 condition = !true
 if !condition
     9 + condition
 else
     0
 "#,
-        Value::Int(9),
-    ),
-    (
-        r#"
+            Value::Int(9),
+        ),
+        (
+            r#"
 if false
     8
 end
 "#,
-        Value::Null,
-    ),
-];
+            Value::Null,
+        ),
+        (
+            r#"
+"Hello, " + "world!"
+"#,
+            Value::String(format!("Hello, world!")),
+        ),
+        (
+            r#"
+i = 5
+res = 1
+while i
+    res = res * i
+    i = i - 1
+end
+res
+"#,
+            Value::Int(120),
+        ),
+        (
+            r#"
+i = 100
+res = 1
+while i
+    res = res + res % i
+    i = i - 1
+end
+res
+"#,
+            Value::Int(2304),
+        ),
+    ];
 
-fn main() {
     let mut i = 0;
     let start = Instant::now();
-    for (code, result) in BENCHMARK_CODE {
+    for (code, result) in benchmark_code {
         let start1 = Instant::now();
         let mut ok = true;
         println!("BENCH #{}", i);

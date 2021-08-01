@@ -185,11 +185,13 @@ impl VM {
 
                 Instruction::Jump(x) => {
                     index = *x;
+                    continue;
                 }
 
                 Instruction::JumpIfFalse(x) => {
                     if !self.heap.pop().is_truthy() {
                         index = *x;
+                        continue;
                     }
                 }
 
