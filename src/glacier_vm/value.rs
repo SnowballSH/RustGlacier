@@ -194,6 +194,14 @@ impl Value {
                             )))
                         }
                     }
+                    "i?" => {
+                        let try_ = s.parse::<i64>();
+                        if let Ok(_) = try_ {
+                            GetInstanceResult::Ok(Value::Boolean(true))
+                        } else {
+                            GetInstanceResult::Ok(Value::Boolean(false))
+                        }
+                    }
                     _ => GetInstanceResult::NoSuchInstance,
                 },
                 Value::Boolean(s) => match name {

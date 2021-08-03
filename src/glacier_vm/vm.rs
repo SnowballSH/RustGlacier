@@ -90,8 +90,6 @@ impl VM {
         while index < l {
             let i = &instructions[index];
 
-            // dbg!(&i);
-
             match i {
                 Instruction::Push(x) => {
                     self.push(x.clone());
@@ -219,6 +217,7 @@ impl VM {
                     self.line = *x;
                 }
             }
+
             index += 1;
         }
     }

@@ -7,6 +7,7 @@ COMMENT = _{ block_comment | ("#" ~ (!NEWLINE ~ ANY)*) }
 
 integer = @{ ASCII_DIGIT{1, 18} }
 identifier = @{ !keyword ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_")* }
+extended_identifier = @{ identifier ~ "?"? }
 keyword = @{
     "if" | "else" | "while" | "end" | "fn"
 }
@@ -52,7 +53,7 @@ empty_call = {
 }
 
 field = {
-    "." ~ identifier
+    "." ~ extended_identifier
 }
 
 indexing = {

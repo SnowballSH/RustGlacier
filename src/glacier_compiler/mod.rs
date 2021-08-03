@@ -126,7 +126,7 @@ impl<'a> Compiler<'a> {
                 self.result.push(Instruction::Noop);
                 self.compile(x.body);
                 self.result.push(Instruction::Jump(org));
-                self.result[pos] = Instruction::JumpIfFalse(self.result.len() + 1);
+                self.result[pos] = Instruction::JumpIfFalse(self.result.len());
                 self.result.push(Instruction::Push(Value::Null));
             }
 
