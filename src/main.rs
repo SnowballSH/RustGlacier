@@ -41,7 +41,7 @@ fn cli() {
                 compiler.compile(ast);
                 let inst = compiler.result.clone();
 
-                dbg!(&inst);
+                // dbg!(&inst);
 
                 let mut vm = VM::default();
 
@@ -83,6 +83,7 @@ fn cli() {
 
         vm.run(inst);
         if let Some(x) = &vm.error {
+            eprintln!("At Line {}, ", vm.line + 1);
             eprintln!("Runtime Error: {}", x.to_string());
         }
     } else if let Err(e) = ast {

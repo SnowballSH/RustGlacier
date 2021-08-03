@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 
 use num::BigInt;
 
-use crate::glacier_vm::error::GlacierError;
+use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
 use crate::glacier_vm::vm::Heap;
 
@@ -82,6 +82,13 @@ pub enum ConvertResult {
 pub enum ApplyOperatorResult {
     Ok(Value),
     NoSuchOperator,
+    Error(GlacierError),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum GetInstanceResult {
+    Ok(Value),
+    NoSuchInstance,
     Error(GlacierError),
 }
 
@@ -166,6 +173,35 @@ impl Value {
                 _ => ConvertResult::NotOk,
             },
             Value::Null => ConvertResult::NotOk,
+        }
+    }
+
+    pub fn get_instance(&self, name: &str) -> GetInstanceResult {
+        match name {
+            "b" => GetInstanceResult::Ok(Value::Boolean(self.is_truthy())),
+            "s" => GetInstanceResult::Ok(Value::String(self.to_string())),
+            "r" => GetInstanceResult::Ok(Value::String(self.to_debug_string())),
+            _ => match self {
+                Value::String(s) => match name {
+                    "i" => {
+                        let try_ = s.parse::<i64>();
+                        if let Ok(x) = try_ {
+                            GetInstanceResult::Ok(Value::Int(x))
+                        } else {
+                            GetInstanceResult::Error(ErrorType::ConversionError(format!(
+                                "Failed to parse {:?} to 64-bit integer",
+                                s
+                            )))
+                        }
+                    }
+                    _ => GetInstanceResult::NoSuchInstance,
+                },
+                Value::Boolean(s) => match name {
+                    "i" => GetInstanceResult::Ok(Value::Int(*s as i64)),
+                    _ => GetInstanceResult::NoSuchInstance,
+                },
+                _ => GetInstanceResult::NoSuchInstance,
+            },
         }
     }
 

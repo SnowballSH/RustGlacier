@@ -14,6 +14,7 @@ pub enum Instruction<'a> {
     UnaryOperator(&'a str),
 
     Call(usize),
+    GetInstance(&'a str),
     MoveLastToStack,
 
     Jump(usize),

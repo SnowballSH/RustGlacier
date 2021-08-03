@@ -70,6 +70,14 @@ res
 "#,
             Value::Int(2304),
         ),
+        (
+            r#"
+# 9742460
+s = "974" + 246.s + false.i.s
+s.i
+"#,
+            Value::Int(9742460),
+        ),
     ];
 
     let mut i = 0;

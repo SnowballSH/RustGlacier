@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::glacier_vm::builtins::get_builtin;
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
-use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, Value};
+use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, GetInstanceResult, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Heap {
@@ -180,6 +180,20 @@ impl VM {
                             self.error = Some(e);
                             return;
                         }
+                    }
+                }
+
+                Instruction::GetInstance(x) => {
+                    let p = self.heap.pop();
+                    let r = p.get_instance(x);
+                    if let GetInstanceResult::Ok(k) = r {
+                        self.push(k);
+                    } else if let GetInstanceResult::Error(e) = r {
+                        self.error = Some(e);
+                        return;
+                    } else {
+                        self.error = Some(ErrorType::NoInstance(p, x.to_string()));
+                        return;
                     }
                 }
 

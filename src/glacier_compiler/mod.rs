@@ -130,13 +130,11 @@ impl<'a> Compiler<'a> {
                 self.result.push(Instruction::Push(Value::Null));
             }
 
-            /*
             Expression::GetInstance(x) => {
                 self.update_line(x.pos);
-                // TODO
-                todo!("do it")
+                self.compile_expression(x.parent);
+                self.result.push(Instruction::GetInstance(x.name));
             }
-             */
             _ => unimplemented!(),
         }
     }

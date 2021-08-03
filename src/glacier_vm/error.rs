@@ -8,7 +8,9 @@ pub enum ErrorType {
     InvalidUnaryOperation(Value, String),
     ZeroDivisionOrModulo,
     NotCallable(ValueType),
+    NoInstance(Value, String),
     ArgumentError(String),
+    ConversionError(String),
 }
 
 impl ErrorType {
@@ -34,7 +36,14 @@ impl ErrorType {
             ErrorType::NotCallable(t) => {
                 format!("Type {:?} is not callable", t)
             }
-            ErrorType::ArgumentError(x) => x.clone(),
+            ErrorType::NoInstance(val, name) => {
+                format!(
+                    "Instance '{}' does not exist on {}",
+                    name,
+                    val.to_debug_string()
+                )
+            }
+            ErrorType::ArgumentError(x) | ErrorType::ConversionError(x) => x.clone(),
         }
     }
 }
