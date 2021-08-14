@@ -43,6 +43,7 @@ lazy_static! {
     pub static ref GET_FN: Value = Value::NativeFunction(FT(get_input_fn_internal));
 }
 
+/// Gets a builtin from a string.
 pub fn get_builtin(name: String) -> Option<Value> {
     match name.as_str() {
         "print" => Some((*PRINT_FN).clone()),

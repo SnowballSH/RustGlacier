@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::env::args;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -7,7 +6,7 @@ use std::{io, thread};
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
 use glacier_lang::glacier_vm::value::ValueType;
-use glacier_lang::glacier_vm::vm::{Heap, VM};
+use glacier_lang::glacier_vm::vm::{Heap, VariableMap, VM};
 
 fn get_input() -> String {
     let mut input = String::new();
@@ -25,7 +24,7 @@ fn cli() {
 
     if argv.len() < 2 {
         let mut heap = Heap::default();
-        let mut vars = HashMap::with_capacity(128);
+        let mut vars = VariableMap::default();
 
         println!("Welcome to Glacier repl. Type :quit to quit.",);
 

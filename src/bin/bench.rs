@@ -87,9 +87,13 @@ s.i
         let mut ok = true;
         println!("BENCH #{}", i);
         let ast = parse(code);
+        let parse_time = start1.elapsed();
+        println!("PARSING TIME: {:?}", parse_time);
         if let Ok(ast) = ast {
             let mut compiler = Compiler::new(code);
             compiler.compile(ast);
+            let compile_time = start1.elapsed() - parse_time;
+            println!("COMPILATION TIME: {:?}", compile_time);
             let inst = compiler.result.clone();
 
             let mut vm = VM::default();
@@ -106,12 +110,22 @@ s.i
                 );
                 ok = false;
             }
+
+            let vm_time = start1.elapsed() - parse_time - compile_time;
+            println!("VM TIME: {:?}", vm_time);
         } else if let Err(e) = ast {
             eprintln!("Parsing Error: {}", e);
             ok = false;
         }
-        println!("{:?} {}", start1.elapsed(), if ok { "OK" } else { "NOTOK" });
+        println!(
+            "BENCH TIME: {:?}\nRESULT: {}\n",
+            start1.elapsed(),
+            if ok { "OK" } else { "NOTOK" }
+        );
         i += 1;
     }
-    println!("{:?}", start.elapsed());
+    println!(
+        "\n--------------------\nFINAL BENCH TIME: {:?}",
+        start.elapsed()
+    );
 }

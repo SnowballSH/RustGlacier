@@ -6,39 +6,128 @@ use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, GetInstanceResult, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+/// Heap for Glacier VM.
+/// available is the free spots created by GC.
 pub struct Heap {
     pub value: Vec<Value>,
-    pub length: usize,
+    pub available: Vec<usize>,
 }
 
 impl Default for Heap {
     fn default() -> Self {
         Self {
             value: Vec::with_capacity(512),
-            length: 0,
+            available: Vec::with_capacity(128),
         }
     }
 }
 
 impl Heap {
-    pub fn push(&mut self, val: Value) {
-        self.value.push(val);
-        self.length += 1;
+    pub fn with_capacity(x: usize, y: usize) -> Self {
+        Self {
+            value: Vec::with_capacity(x),
+            available: Vec::with_capacity(y),
+        }
     }
 
+    #[inline]
+    /// Use a free spot if possible.
+    pub fn push_free(&mut self, val: Value) -> usize {
+        if let Some(x) = self.available.pop() {
+            self.value[x] = val;
+            x
+        } else {
+            self.push(val)
+        }
+    }
+
+    #[inline]
+    /// Push to the back, do not use a free spot.
+    pub fn push(&mut self, val: Value) -> usize {
+        self.value.push(val);
+        self.value.len() - 1
+    }
+
+    #[inline]
+    /// Returns the last element of the heap.
     pub fn pop(&mut self) -> Value {
         let r = self.value.pop().expect("Stack underflow");
-        self.length -= 1;
         r
+    }
+
+    #[inline]
+    /// Releases a location for future variable storage.
+    pub fn release(&mut self, pos: usize) {
+        self.available.push(pos);
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.value.len()
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+/// Represents linking of name to heap location.
+/// parent is the outer scope.
+pub struct VariableMap {
+    pub map: HashMap<String, usize>,
+    pub parent: Option<Box<VariableMap>>,
+}
+
+impl Default for VariableMap {
+    fn default() -> Self {
+        VariableMap {
+            map: HashMap::with_capacity(256),
+            parent: None,
+        }
+    }
+}
+
+impl VariableMap {
+    pub fn child_of(parent: VariableMap) -> Self {
+        VariableMap {
+            map: HashMap::with_capacity(128),
+            parent: Some(Box::new(parent)),
+        }
+    }
+
+    #[inline]
+    pub fn insert(&mut self, key: String, value: usize) {
+        self.map.insert(key, value);
+    }
+
+    #[inline]
+    pub fn get(&self, key: &String) -> Option<&usize> {
+        let res = self.map.get(key);
+        if res.is_some() {
+            res
+        } else {
+            if let Some(parent) = &self.parent {
+                parent.get(key)
+            } else {
+                None
+            }
+        }
     }
 }
 
 #[derive(Clone, Debug)]
+/// Virtual Machine for Glacier. It contains:
+/// Heap: main heap of the VM
+/// Stack: stack of the VM, to compute with multiple objects without interrupting the heap.
+///        Usually an object is popped from heap and pushed to stack, then dropped after computation.
+/// Variables: map of name to location.
+/// Last Popped: the last object popped. Useful for repl mode.
+/// Last Push Location: location of last object pushed.
+/// Error: error during interpretation.
+/// Line: current line position.
 pub struct VM {
     pub heap: Heap,
     pub stack: Heap,
-    pub variables: HashMap<String, usize>,
+    pub variables: VariableMap,
     pub last_popped: Option<Value>,
+    pub last_push_location: Option<usize>,
     pub error: Option<GlacierError>,
     pub line: usize,
 }
@@ -46,10 +135,11 @@ pub struct VM {
 impl Default for VM {
     fn default() -> Self {
         Self {
-            heap: Default::default(),
-            stack: Default::default(),
-            variables: HashMap::with_capacity(512),
+            heap: Heap::default(),
+            stack: Heap::with_capacity(32, 16),
+            variables: VariableMap::default(),
             last_popped: None,
+            last_push_location: None,
             error: None,
             line: 0,
         }
@@ -58,16 +148,25 @@ impl Default for VM {
 
 impl VM {
     #[inline]
+    /// pushes an object to the heap, do not use free spots, updating [self.last_push_location]
     pub fn push(&mut self, value: Value) {
-        self.heap.push(value);
+        self.last_push_location = Some(self.heap.push(value));
     }
 
     #[inline]
+    /// pushes an object to the heap, but use a free spot if possible, updating [self.last_push_location]
+    pub fn push_free(&mut self, value: Value) {
+        self.last_push_location = Some(self.heap.push_free(value));
+    }
+
+    #[inline]
+    /// Link [self.last_push_location] to [name]
     pub fn define_variable(&mut self, name: String) {
-        self.variables.insert(name, self.heap.length - 1);
+        self.variables
+            .insert(name, self.last_push_location.expect("No value pushed"));
     }
 
-    #[inline]
+    /// Get a variable and return it.
     pub fn get_variable(&mut self, name: String) -> Option<&Value> {
         let res = self.variables.get(&name);
         if let Some(x) = res {
@@ -84,6 +183,23 @@ impl VM {
         }
     }
 
+    #[inline]
+    /// Creates a new frame/scope
+    pub fn new_frame(&mut self) {
+        self.variables = VariableMap::child_of(self.variables.clone());
+    }
+
+    #[inline]
+    /// Exits the nearest scope
+    pub fn exit_frame(&mut self) {
+        let m = self.variables.clone();
+        for x in m.map {
+            self.heap.release(x.1);
+        }
+        self.variables = *m.parent.unwrap();
+    }
+
+    /// Runs the instructions.
     pub fn run(&mut self, instructions: Vec<Instruction>) {
         let mut index = 0;
         let l = instructions.len();
@@ -92,7 +208,13 @@ impl VM {
 
             match i {
                 Instruction::Push(x) => {
-                    self.push(x.clone());
+                    // Look forward to see if t here is a push
+                    // TODO there is probably a better way. Maybe use a unique instruction for Push + Var?
+                    if let Some(Instruction::Var(_)) = instructions.get(index + 1) {
+                        self.push_free(x.clone());
+                    } else {
+                        self.push(x.clone());
+                    }
                 }
                 Instruction::Pop => {
                     self.last_popped = Some(self.heap.pop());
@@ -281,6 +403,55 @@ mod tests {
             vm.error,
             Some(ErrorType::UndefinedVariable("bbc".to_string()))
         );
+    }
+
+    #[test]
+    fn frames() {
+        let mut vm = VM::default();
+
+        // abc = 12345
+        vm.run(vec![Push(Value::Int(12345)), Var("abc")]);
+
+        // {
+        vm.new_frame();
+
+        // abc  # 12345 because no change
+        vm.run(vec![MoveVar("abc"), Pop]);
+        assert!(vm.error.is_none());
+        assert_eq!(vm.last_popped, Some(Value::Int(12345)));
+
+        // abc = 123
+        vm.run(vec![Push(Value::Int(123)), Var("abc")]);
+
+        // abc  # now abc is 123 in this scope
+        vm.run(vec![MoveVar("abc"), Pop]);
+        assert!(vm.error.is_none());
+        assert_eq!(vm.last_popped, Some(Value::Int(123)));
+
+        // xyz = 543  # frame-scoped
+        vm.run(vec![Push(Value::Int(543)), Var("xyz")]);
+
+        // }
+        vm.exit_frame();
+
+        // abc  # 12345 because abc is changed to 123 only in the frame
+        vm.run(vec![MoveVar("abc"), Pop]);
+        assert!(vm.error.is_none());
+        assert_eq!(vm.last_popped, Some(Value::Int(12345)));
+
+        // Should have two free spots: abc and xyz
+        assert_eq!(vm.heap.available.len(), 2);
+
+        // ii = 8000  # should have a free spot
+        vm.run(vec![Push(Value::Int(8000)), Var("ii")]);
+
+        assert_eq!(vm.heap.available.len(), 1);
+        // ii would take 1 or 2, technically randomly due to hashmap.
+        assert!(*vm.variables.get(&"ii".to_string()).unwrap() >= 1);
+
+        vm.run(vec![MoveVar("xyz"), Pop]);
+        // does not exist in outer scope.
+        assert!(vm.error.is_some());
     }
 
     #[test]
