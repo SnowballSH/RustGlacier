@@ -93,22 +93,28 @@ add_3(65, 15, 10)
     let mut i = 0;
     let start = Instant::now();
     for (code, result) in benchmark_code {
+        let mut vm = VM::default();
+
         let start1 = Instant::now();
         let mut ok = true;
         println!("BENCH #{}", i);
         let ast = parse(code);
         let parse_time = start1.elapsed();
         println!("PARSING TIME: {:?}", parse_time);
+        let parse_time = start1.elapsed();
+
         if let Ok(ast) = ast {
             let mut compiler = Compiler::new(code);
             compiler.compile(ast);
             let compile_time = start1.elapsed() - parse_time;
             println!("COMPILATION TIME: {:?}", compile_time);
-            let inst = compiler.result.clone();
+            let compile_time = start1.elapsed() - parse_time;
 
-            let mut vm = VM::default();
+            vm.run(compiler.result);
 
-            vm.run(inst);
+            let vm_time = start1.elapsed() - parse_time - compile_time;
+            println!("VM TIME: {:?}", vm_time);
+
             if let Some(x) = &vm.error {
                 eprintln!("Runtime Error: {}", x.to_string());
                 ok = false;
@@ -120,9 +126,6 @@ add_3(65, 15, 10)
                 );
                 ok = false;
             }
-
-            let vm_time = start1.elapsed() - parse_time - compile_time;
-            println!("VM TIME: {:?}", vm_time);
         } else if let Err(e) = ast {
             eprintln!("Parsing Error: {}", e);
             ok = false;
