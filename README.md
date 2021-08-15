@@ -28,6 +28,14 @@ while i <= 30
 end
 ```
 
+### Example: Fibonacci Number
+
+```ruby
+fn F(i)
+    if i <= 1 i
+    else F(i - 1) + F(i - 2)
+```
+
 Note that Glacier is Work-in-Progress, so this example will change rapidly with the introduction of subroutines and
 suffix operators. (i++)
 
@@ -36,11 +44,11 @@ suffix operators. (i++)
 - Fibonacci
 
 | bench\language | **Glacier DEV** | Gorilla 1.0 | Python 3.8.3 | Ruby 2.7.2 |
-|----------------|-------------|-------------|--------------|------------|
-| 21th - Time    | 0.35s       | 2.98s       | 0.06s        | 0.13s      |
-| 21th - CPU     | **1%**      | 80%         | 22%          | 1%         |
-| 26th - Time    | 4.97s       | DNF         | 0.11s        | 0.15s      |
-| 26th - CPU     | **1%**      | DNF         | 14%          | 11%        |
+|----------------|-----------------|-------------|--------------|------------|
+| 21th - Time    | **0.35s**       | 2.98s       | 0.06s        | 0.13s      |
+| 21th - CPU     | **1%**          | 80%         | 22%          | 1%         |
+| 26th - Time    | **4.97s**       | DNF         | 0.11s        | 0.15s      |
+| 26th - CPU     | **1%**          | DNF         | 14%          | 11%        |
 
 As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
 
