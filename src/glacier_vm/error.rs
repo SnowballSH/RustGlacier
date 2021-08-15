@@ -11,6 +11,7 @@ pub enum ErrorType {
     NoInstance(Value, String),
     ArgumentError(String),
     ConversionError(String),
+    InFunction(String, Box<ErrorType>),
 }
 
 impl ErrorType {
@@ -44,6 +45,9 @@ impl ErrorType {
                 )
             }
             ErrorType::ArgumentError(x) | ErrorType::ConversionError(x) => x.clone(),
+            ErrorType::InFunction(x, y) => {
+                format!("In Function {}:\n{}", x, y.to_string())
+            }
         }
     }
 }

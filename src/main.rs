@@ -49,16 +49,19 @@ fn cli() {
 
                 vm.run(inst);
                 if let Some(x) = &vm.error {
-                    eprintln!("Runtime Error: {}", x.to_string());
+                    eprintln!("Runtime Error:\n{}", x.to_string());
                 } else if let Some(l) = &vm.last_popped {
                     if l.value_type() != ValueType::Null {
                         println!("{}", l.to_debug_string());
                     }
                     heap = vm.heap;
                     vars = vm.variables;
+                } else {
+                    heap = vm.heap;
+                    vars = vm.variables;
                 }
             } else if let Err(e) = ast {
-                eprintln!("Parsing Error: {}", e);
+                eprintln!("Parsing Error:\n{}", e);
             }
         }
         return;
@@ -83,10 +86,10 @@ fn cli() {
         vm.run(inst);
         if let Some(x) = &vm.error {
             eprintln!("At Line {}, ", vm.line + 1);
-            eprintln!("Runtime Error: {}", x.to_string());
+            eprintln!("Runtime Error:\n{}", x.to_string());
         }
     } else if let Err(e) = ast {
-        eprintln!("Parsing Error: {}", e);
+        eprintln!("Parsing Error:\n{}", e);
     }
 }
 

@@ -4,6 +4,7 @@ use std::fmt::{Debug, Formatter};
 use num::BigInt;
 
 use crate::glacier_vm::error::{ErrorType, GlacierError};
+use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
 use crate::glacier_vm::vm::Heap;
 
@@ -29,6 +30,7 @@ pub enum Value {
     BigInt(BigInt),
     Int(i64),
     NativeFunction(FT),
+    GlacierFunction(Vec<Instruction>, String, Vec<String>),
     String(String),
     Boolean(bool),
 
@@ -40,6 +42,7 @@ pub enum ValueType {
     BigInt,
     Int,
     NativeFunction,
+    GlacierFunction,
     String,
     Boolean,
 
@@ -57,6 +60,9 @@ impl ValueType {
             }
             ValueType::NativeFunction => {
                 format!("NativeFunction")
+            }
+            ValueType::GlacierFunction => {
+                format!("GlacierFunction")
             }
             ValueType::String => {
                 format!("String")
@@ -107,6 +113,9 @@ impl Value {
             Value::NativeFunction(x) => {
                 format!("{:?}", x)
             }
+            Value::GlacierFunction(_, y, _) => {
+                format!("Glacier Function {} {:p}", y, self)
+            }
             Value::String(x) => x.clone(),
             Value::Boolean(x) => x.to_string(),
             Value::Null => {
@@ -148,6 +157,7 @@ impl Value {
             Value::BigInt(_) => ValueType::BigInt,
             Value::Int(_) => ValueType::Int,
             Value::NativeFunction(_) => ValueType::NativeFunction,
+            Value::GlacierFunction(..) => ValueType::GlacierFunction,
             Value::String(_) => ValueType::String,
             Value::Boolean(_) => ValueType::Boolean,
             Value::Null => ValueType::Null,
@@ -160,19 +170,16 @@ impl Value {
             return ConvertResult::SameType;
         }
         match self {
-            Value::BigInt(_) => ConvertResult::NotOk,
             Value::Int(x) => match into {
                 ValueType::BigInt => ConvertResult::Ok(Value::BigInt(BigInt::from(*x))),
                 ValueType::Boolean => ConvertResult::Ok(Value::Boolean(*x != 0)),
                 _ => ConvertResult::NotOk,
             },
-            Value::NativeFunction(_) => ConvertResult::NotOk,
-            Value::String(_) => ConvertResult::NotOk,
             Value::Boolean(x) => match into {
                 ValueType::Int => ConvertResult::Ok(Value::Int(*x as i64)),
                 _ => ConvertResult::NotOk,
             },
-            Value::Null => ConvertResult::NotOk,
+            _ => ConvertResult::NotOk,
         }
     }
 

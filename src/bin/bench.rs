@@ -78,6 +78,16 @@ s.i
 "#,
             Value::Int(9742460),
         ),
+        (
+            r#"
+fn add_3(a, b, c)
+    a + b + c
+end
+
+add_3(65, 15, 10)
+"#,
+            Value::Int(90),
+        ),
     ];
 
     let mut i = 0;

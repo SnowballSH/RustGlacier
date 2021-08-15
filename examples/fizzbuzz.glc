@@ -1,13 +1,22 @@
-i = 1
-while i <= 30
-    print(
-        if i % 15 == 0
-            "FizzBuzz"
-        else if i % 3 == 0
-            "Fizz"
-        else if i % 5 == 0
-            "Buzz"
-        else i
-    )
-    i = i + 1
+# Epic Fizzbuzz program
+
+# Credits:
+# - Bug fix suggested by Just For Fun
+
+fn fizzbuzz(from, to)
+    i = from
+    while i <= to
+        print(
+            if i % 15 == 0
+                "FizzBuzz"
+            else if i % 3 == 0
+                "Fizz"
+            else if i % 5 == 0
+                "Buzz"
+            else i
+        )
+        i = i + 1
+    end
 end
+
+fizzbuzz(1, 30)

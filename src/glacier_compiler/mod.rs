@@ -8,7 +8,7 @@ use crate::glacier_vm::value::Value;
 #[derive(Debug)]
 pub struct Compiler<'a> {
     pub source: &'a str,
-    pub result: Vec<Instruction<'a>>,
+    pub result: Vec<Instruction>,
     last_line: usize,
 }
 
@@ -39,10 +39,21 @@ impl<'a> Compiler<'a> {
     pub fn compile_statement(&mut self, stmt: Statement<'a>) {
         match stmt {
             Statement::ExprStmt(x) => {
+                self.update_line(x.pos);
                 self.compile_expression(x.expr);
                 self.result.push(Instruction::Pop);
             }
-            Statement::FunctionDeclare(_) => unimplemented!(),
+            Statement::FunctionDeclare(x) => {
+                self.update_line(x.pos);
+                let mut new_comp = Compiler::new(self.source);
+                new_comp.compile(x.body);
+                self.result.push(Instruction::MakeCode(
+                    new_comp.result,
+                    x.name.to_string(),
+                    x.args.iter().map(|x| x.to_string()).collect(),
+                ));
+                self.result.push(Instruction::Var(x.name.to_string()))
+            }
         }
     }
 
@@ -60,12 +71,12 @@ impl<'a> Compiler<'a> {
             Expression::SetVar(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.value);
-                self.result.push(Instruction::Var(x.name));
+                self.result.push(Instruction::Var(x.name.to_string()));
                 self.result.push(Instruction::MoveLast);
             }
             Expression::GetVar(x) => {
                 self.update_line(x.pos);
-                self.result.push(Instruction::MoveVar(x.name));
+                self.result.push(Instruction::MoveVar(x.name.to_string()));
             }
             Expression::Infix(x) => {
                 self.update_line(x.pos);
@@ -73,13 +84,15 @@ impl<'a> Compiler<'a> {
                 self.result.push(Instruction::MoveLastToStack);
                 self.compile_expression(x.right);
                 self.result.push(Instruction::MoveLastToStack);
-                self.result.push(Instruction::BinaryOperator(x.operator));
+                self.result
+                    .push(Instruction::BinaryOperator(x.operator.to_string()));
             }
             Expression::Prefix(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.right);
                 self.result.push(Instruction::MoveLastToStack);
-                self.result.push(Instruction::UnaryOperator(x.operator));
+                self.result
+                    .push(Instruction::UnaryOperator(x.operator.to_string()));
             }
             Expression::Call(x) => {
                 let mut x = x.clone();
@@ -133,7 +146,8 @@ impl<'a> Compiler<'a> {
             Expression::GetInstance(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.parent);
-                self.result.push(Instruction::GetInstance(x.name));
+                self.result
+                    .push(Instruction::GetInstance(x.name.to_string()));
             }
             _ => unimplemented!(),
         }

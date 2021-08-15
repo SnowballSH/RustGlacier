@@ -1,24 +1,27 @@
 use crate::glacier_vm::value::Value;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
-pub enum Instruction<'a> {
+pub enum Instruction {
     Push(Value),
     Pop,
     Move((usize, usize)),
     MovePush(usize),
     MoveLast,
-    MoveVar(&'a str),
-    Var(&'a str),
+    MoveVar(String),
+    Var(String),
 
-    BinaryOperator(&'a str),
-    UnaryOperator(&'a str),
+    BinaryOperator(String),
+    UnaryOperator(String),
 
     Call(usize),
-    GetInstance(&'a str),
+    GetInstance(String),
     MoveLastToStack,
 
     Jump(usize),
     JumpIfFalse(usize),
+
+    // code len, name, params
+    MakeCode(Vec<Instruction>, String, Vec<String>),
 
     Noop,
 

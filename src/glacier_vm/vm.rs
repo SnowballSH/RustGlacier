@@ -186,6 +186,7 @@ impl VM {
     #[inline]
     /// Creates a new frame/scope
     pub fn new_frame(&mut self) {
+        self.last_popped = None;
         self.variables = VariableMap::child_of(self.variables.clone());
     }
 
@@ -248,7 +249,7 @@ impl VM {
                     }
                 }
                 Instruction::Var(x) => {
-                    self.define_variable(x.to_string());
+                    self.define_variable(x.clone());
                 }
 
                 Instruction::BinaryOperator(x) => {
@@ -283,22 +284,59 @@ impl VM {
 
                 Instruction::Call(x) => {
                     let callee = self.heap.pop();
-                    let mut arguments = vec![];
-                    for _ in 0..*x {
-                        arguments.push(self.stack.pop());
-                    }
-                    let res = callee.call(arguments, &self.heap);
-                    match res {
-                        CallResult::Ok(x) => {
-                            self.push(x);
-                        }
-                        CallResult::NotCallable => {
-                            self.error = Some(ErrorType::NotCallable(callee.value_type()));
+                    if let Value::GlacierFunction(inst, name, params) = callee {
+                        if *x != params.len() {
+                            self.error = Some(GlacierError::ArgumentError(format!(
+                                "When Calling Function {}: Expected {} arguments, got {}",
+                                name,
+                                params.len(),
+                                *x
+                            )));
                             return;
                         }
-                        CallResult::Error(e) => {
-                            self.error = Some(e);
+
+                        // enter a new scope
+                        self.new_frame();
+
+                        for s in params {
+                            let k = self.stack.pop();
+                            self.push_free(k);
+                            self.define_variable(s);
+                        }
+
+                        self.run(inst);
+                        if let Some(e) = &self.error {
+                            self.error = Some(GlacierError::InFunction(name, Box::new(e.clone())));
+                            self.exit_frame();
                             return;
+                        }
+
+                        if let Some(ret) = self.last_popped.clone() {
+                            self.push(ret);
+                        } else {
+                            self.push(Value::Null);
+                        }
+
+                        self.exit_frame();
+                    } else {
+                        let mut arguments = vec![];
+                        for _ in 0..*x {
+                            arguments.push(self.stack.pop());
+                        }
+
+                        let res = callee.call(arguments, &self.heap);
+                        match res {
+                            CallResult::Ok(x) => {
+                                self.push(x);
+                            }
+                            CallResult::NotCallable => {
+                                self.error = Some(ErrorType::NotCallable(callee.value_type()));
+                                return;
+                            }
+                            CallResult::Error(e) => {
+                                self.error = Some(e);
+                                return;
+                            }
                         }
                     }
                 }
@@ -314,6 +352,14 @@ impl VM {
                     } else {
                         self.error = Some(ErrorType::NoInstance(p, x.to_string()));
                         return;
+                    }
+                }
+
+                Instruction::MakeCode(x, y, z) => {
+                    if let Some(Instruction::Var(_)) = instructions.get(index + 1) {
+                        self.push_free(Value::GlacierFunction(x.clone(), y.clone(), z.clone()));
+                    } else {
+                        self.push(Value::GlacierFunction(x.clone(), y.clone(), z.clone()));
                     }
                 }
 
@@ -374,10 +420,10 @@ mod tests {
             Push(Value::Int(987656789)),
             MovePush(0),
             Move((1, 0)),
-            Var("onefiveone"),
+            Var("onefiveone".to_string()),
             MovePush(0),
-            Var("ninefivenine"),
-            MoveVar("onefiveone"),
+            Var("ninefivenine".to_string()),
+            MoveVar("onefiveone".to_string()),
         ]);
 
         assert_eq!(vm.heap.value.last().unwrap(), &Value::Int(123454321));
@@ -389,15 +435,15 @@ mod tests {
 
         vm.run(vec![
             Push(Value::Int(123454321)),
-            Var("abc"),
-            MoveVar("abc"),
+            Var("abc".to_string()),
+            MoveVar("abc".to_string()),
             Pop,
         ]);
 
         assert_eq!(vm.last_popped, Some(Value::Int(123454321)));
         assert!(vm.error.is_none());
 
-        vm.run(vec![MoveVar("bbc"), Pop]);
+        vm.run(vec![MoveVar("bbc".to_string()), Pop]);
 
         assert_eq!(
             vm.error,
@@ -410,32 +456,32 @@ mod tests {
         let mut vm = VM::default();
 
         // abc = 12345
-        vm.run(vec![Push(Value::Int(12345)), Var("abc")]);
+        vm.run(vec![Push(Value::Int(12345)), Var("abc".to_string())]);
 
         // {
         vm.new_frame();
 
         // abc  # 12345 because no change
-        vm.run(vec![MoveVar("abc"), Pop]);
+        vm.run(vec![MoveVar("abc".to_string()), Pop]);
         assert!(vm.error.is_none());
         assert_eq!(vm.last_popped, Some(Value::Int(12345)));
 
         // abc = 123
-        vm.run(vec![Push(Value::Int(123)), Var("abc")]);
+        vm.run(vec![Push(Value::Int(123)), Var("abc".to_string())]);
 
         // abc  # now abc is 123 in this scope
-        vm.run(vec![MoveVar("abc"), Pop]);
+        vm.run(vec![MoveVar("abc".to_string()), Pop]);
         assert!(vm.error.is_none());
         assert_eq!(vm.last_popped, Some(Value::Int(123)));
 
         // xyz = 543  # frame-scoped
-        vm.run(vec![Push(Value::Int(543)), Var("xyz")]);
+        vm.run(vec![Push(Value::Int(543)), Var("xyz".to_string())]);
 
         // }
         vm.exit_frame();
 
         // abc  # 12345 because abc is changed to 123 only in the frame
-        vm.run(vec![MoveVar("abc"), Pop]);
+        vm.run(vec![MoveVar("abc".to_string()), Pop]);
         assert!(vm.error.is_none());
         assert_eq!(vm.last_popped, Some(Value::Int(12345)));
 
@@ -443,15 +489,48 @@ mod tests {
         assert_eq!(vm.heap.available.len(), 2);
 
         // ii = 8000  # should have a free spot
-        vm.run(vec![Push(Value::Int(8000)), Var("ii")]);
+        vm.run(vec![Push(Value::Int(8000)), Var("ii".to_string())]);
 
         assert_eq!(vm.heap.available.len(), 1);
         // ii would take 1 or 2, technically randomly due to hashmap.
         assert!(*vm.variables.get(&"ii".to_string()).unwrap() >= 1);
 
-        vm.run(vec![MoveVar("xyz"), Pop]);
+        vm.run(vec![MoveVar("xyz".to_string()), Pop]);
         // does not exist in outer scope.
         assert!(vm.error.is_some());
+    }
+
+    #[test]
+    fn functions() {
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            MakeCode(
+                vec![
+                    MoveVar("a".to_string()),
+                    MoveLastToStack,
+                    MoveVar("b".to_string()),
+                    MoveLastToStack,
+                    BinaryOperator("+".to_string()),
+                    Pop,
+                ],
+                "add".to_string(),
+                vec!["a".to_string(), "b".to_string()],
+            ),
+            Var("add".to_string()),
+        ]);
+
+        vm.run(vec![
+            Push(Value::Int(5)),
+            MoveLastToStack,
+            Push(Value::Int(3)),
+            MoveLastToStack,
+            MoveVar("add".to_string()),
+            Call(2),
+            Pop,
+        ]);
+
+        assert_eq!(vm.last_popped, Some(Value::Int(8)));
     }
 
     #[test]
@@ -463,7 +542,7 @@ mod tests {
             MoveLastToStack,
             Push(Value::Int(10)),
             MoveLastToStack,
-            BinaryOperator("+"),
+            BinaryOperator("+".to_string()),
             Pop,
         ]);
 
@@ -477,7 +556,7 @@ mod tests {
             MoveLastToStack,
             Push(Value::Int(0)),
             MoveLastToStack,
-            BinaryOperator("/"),
+            BinaryOperator("/".to_string()),
             Pop,
         ]);
 
@@ -490,7 +569,7 @@ mod tests {
             MoveLastToStack,
             Push(Value::Int(10)),
             MoveLastToStack,
-            BinaryOperator("???"),
+            BinaryOperator("???".to_string()),
             Pop,
         ]);
 
@@ -508,7 +587,7 @@ mod tests {
         vm.run(vec![
             Push(Value::Int(-5)),
             MoveLastToStack,
-            UnaryOperator("-"),
+            UnaryOperator("-".to_string()),
             Pop,
         ]);
 
@@ -520,7 +599,7 @@ mod tests {
         vm.run(vec![
             Push(Value::Int(-5)),
             MoveLastToStack,
-            UnaryOperator("???"),
+            UnaryOperator("???".to_string()),
             Pop,
         ]);
 
@@ -534,5 +613,49 @@ mod tests {
     }
 
     #[test]
-    fn if_else() {}
+    fn if_else() {
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            Push(Value::Int(1)),
+            MoveLastToStack,
+            Push(Value::Int(1)),
+            MoveLastToStack,
+            BinaryOperator("+".to_string()),
+            MoveLastToStack,
+            Push(Value::Int(2)),
+            MoveLastToStack,
+            BinaryOperator("==".to_string()),
+            JumpIfFalse(12),
+            Push(Value::String("yep".to_string())),
+            Jump(13),
+            Push(Value::String("oh no".to_string())),
+            Pop,
+        ]);
+
+        assert!(vm.error.is_none());
+        assert_eq!(vm.last_popped, Some(Value::String("yep".to_string())));
+
+        let mut vm = VM::default();
+
+        vm.run(vec![
+            Push(Value::Int(1)),
+            MoveLastToStack,
+            Push(Value::Int(1)),
+            MoveLastToStack,
+            BinaryOperator("+".to_string()),
+            MoveLastToStack,
+            Push(Value::Int(3)),
+            MoveLastToStack,
+            BinaryOperator("==".to_string()),
+            JumpIfFalse(12),
+            Push(Value::String("oh no".to_string())),
+            Jump(13),
+            Push(Value::Null),
+            Pop,
+        ]);
+
+        assert!(vm.error.is_none());
+        assert_eq!(vm.last_popped, Some(Value::Null));
+    }
 }
