@@ -49,7 +49,7 @@ suffix operators. (i++)
 | 21th - CPU     | **1%**          | 80%         | 22%          | 1%         |
 | 26th - Time    | **4.52s**       | DNF         | 0.11s        | 0.15s      |
 | 26th - CPU     | **1%**          | DNF         | 14%          | 11%        |
-| 26th - Memory  | **1.4MB**       | DNF         | 14%          | 11%        |
+| 26th - Memory  | **1.4MB**       | 120MB       | ?            | ?          |
 
 As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
 
