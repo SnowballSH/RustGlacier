@@ -24,6 +24,7 @@ pub enum Instruction {
     MakeCode(Vec<Instruction>, String, Vec<String>),
 
     Noop,
+    ToggleRef,
 
     SetLine(usize),
 }

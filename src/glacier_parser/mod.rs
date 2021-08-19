@@ -15,6 +15,8 @@ lazy_static! {
         use Assoc::*;
 
         PrecClimber::new(vec![
+            Operator::new(log_or, Left),
+            Operator::new(log_and, Left),
             Operator::new(dbeq, Left) | Operator::new(neq, Left),
             Operator::new(gt, Left)
                 | Operator::new(lt, Left)

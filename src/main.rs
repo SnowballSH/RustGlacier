@@ -49,10 +49,10 @@ fn cli() {
 
                 vm.run(inst);
                 if let Some(x) = &vm.error {
-                    eprintln!("Runtime Error:\n{}", x.to_string());
+                    eprintln!("Runtime Error:\n{}", x.to_string(&vm.heap));
                 } else if let Some(l) = &vm.last_popped {
                     if l.value_type() != ValueType::Null {
-                        println!("{}", l.to_debug_string());
+                        println!("{}", l.to_debug_string(&vm.heap));
                     }
                     heap = vm.heap;
                     vars = vm.variables;
@@ -83,10 +83,33 @@ fn cli() {
 
         let mut vm = VM::default();
 
+        let mut index = 2;
+        loop {
+            if let Some(option) = argv.get(index) {
+                match option.as_str() {
+                    "use_ref" => {
+                        println!("INFO: Using Reference Mode");
+                        eprintln!("WARNING: There will be bugs if you use reference.");
+                        vm.use_reference = true;
+                    }
+                    "no_gc" => {
+                        println!("INFO: Using NoGC Mode");
+                        vm.use_gc = false;
+                    }
+                    _ => {
+                        eprintln!("WARNING: no such option: {}", option)
+                    }
+                }
+            } else {
+                break;
+            }
+            index += 1;
+        }
+
         vm.run(inst);
         if let Some(x) = &vm.error {
             eprintln!("At Line {}, ", vm.line + 1);
-            eprintln!("Runtime Error:\n{}", x.to_string());
+            eprintln!("Runtime Error:\n{}", x.to_string(&vm.heap));
         }
     } else if let Err(e) = ast {
         eprintln!("Parsing Error:\n{}", e);

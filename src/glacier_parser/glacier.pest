@@ -87,10 +87,13 @@ lt = { "<" }
 gteq = { ">=" }
 lteq = { "<=" }
 bang = { "!" }
+log_and = { "&&" }
+log_or = { "||" }
 
 operators = _{
     add | sub | mul | div | modulo
     | dbeq | neq | gteq | lteq | gt | lt
+    | log_and | log_or
 }
 
 prefix_operators = _{

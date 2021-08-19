@@ -52,7 +52,7 @@ impl<'a> Compiler<'a> {
                     x.name.to_string(),
                     x.args.iter().map(|x| x.to_string()).collect(),
                 ));
-                self.result.push(Instruction::Var(x.name.to_string()))
+                self.result.push(Instruction::Var(x.name.to_string()));
             }
         }
     }

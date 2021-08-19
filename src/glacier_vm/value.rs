@@ -35,6 +35,8 @@ pub enum Value {
     Boolean(bool),
 
     Null,
+
+    Reference(usize),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -47,6 +49,8 @@ pub enum ValueType {
     Boolean,
 
     Null,
+
+    Reference,
 }
 
 impl ValueType {
@@ -72,6 +76,9 @@ impl ValueType {
             }
             ValueType::Null => {
                 format!("Null")
+            }
+            ValueType::Reference => {
+                format!("Reference")
             }
         }
     }
@@ -106,7 +113,7 @@ pub enum CallResult {
 }
 
 impl Value {
-    pub fn to_string(&self) -> String {
+    pub fn to_string(&self, heap: &Heap) -> String {
         match self {
             Value::BigInt(x) => x.to_string(),
             Value::Int(x) => x.to_string(),
@@ -121,33 +128,50 @@ impl Value {
             Value::Null => {
                 format!("Null")
             }
+            Value::Reference(address) => {
+                format!(
+                    "{} (reference)",
+                    heap.value.get(*address).unwrap().to_string(heap)
+                )
+            }
         }
     }
 
-    pub fn to_debug_string(&self) -> String {
+    pub fn to_debug_string(&self, heap: &Heap) -> String {
         match self {
             Value::String(x) => {
                 format!("\"{}\"", x)
             }
-            _ => self.to_string(),
+            Value::Reference(address) => {
+                format!(
+                    "{} (reference to 0x{:x})",
+                    heap.value.get(*address).unwrap().to_string(heap),
+                    *address,
+                )
+            }
+            _ => self.to_string(heap),
         }
     }
 
-    pub fn is_truthy(&self) -> bool {
+    pub fn is_truthy(&self, heap: &Heap) -> bool {
         match self {
             Value::Int(x) => *x != 0,
             Value::Boolean(x) => *x,
             Value::Null => false,
+            Value::Reference(x) => {
+                let k = heap.value.get(*x).unwrap();
+                k.is_truthy(heap)
+            }
             _ => true,
         }
     }
 
-    pub fn apply_operator(&self, name: &str, other: &Value) -> ApplyOperatorResult {
-        apply_operator(self, name, other)
+    pub fn apply_operator(&self, name: &str, other: &Value, heap: &Heap) -> ApplyOperatorResult {
+        apply_operator(self, name, other, heap)
     }
 
-    pub fn apply_unary_operator(&self, name: &str) -> ApplyOperatorResult {
-        apply_unary_operator(self, name)
+    pub fn apply_unary_operator(&self, name: &str, heap: &Heap) -> ApplyOperatorResult {
+        apply_unary_operator(self, name, heap)
     }
 
     #[inline]
@@ -161,6 +185,7 @@ impl Value {
             Value::String(_) => ValueType::String,
             Value::Boolean(_) => ValueType::Boolean,
             Value::Null => ValueType::Null,
+            Value::Reference(_) => ValueType::Reference,
         }
     }
 
@@ -183,11 +208,11 @@ impl Value {
         }
     }
 
-    pub fn get_instance(&self, name: &str) -> GetInstanceResult {
+    pub fn get_instance(&self, name: &str, heap: &Heap) -> GetInstanceResult {
         match name {
-            "b" => GetInstanceResult::Ok(Value::Boolean(self.is_truthy())),
-            "s" => GetInstanceResult::Ok(Value::String(self.to_string())),
-            "r" => GetInstanceResult::Ok(Value::String(self.to_debug_string())),
+            "b" => GetInstanceResult::Ok(Value::Boolean(self.is_truthy(heap))),
+            "s" => GetInstanceResult::Ok(Value::String(self.to_string(heap))),
+            "r" => GetInstanceResult::Ok(Value::String(self.to_debug_string(heap))),
             _ => match self {
                 Value::String(s) => match name {
                     "i" => {
@@ -215,6 +240,19 @@ impl Value {
                     "i" => GetInstanceResult::Ok(Value::Int(*s as i64)),
                     _ => GetInstanceResult::NoSuchInstance,
                 },
+                Value::Reference(addr) => match name {
+                    "deref" => {
+                        if let Some(m) = heap.value.get(*addr) {
+                            GetInstanceResult::Ok(m.clone())
+                        } else {
+                            GetInstanceResult::Error(GlacierError::Failure(format!(
+                                "Cannot dereference at address 0x{:x}",
+                                addr
+                            )))
+                        }
+                    }
+                    _ => GetInstanceResult::NoSuchInstance,
+                },
                 _ => GetInstanceResult::NoSuchInstance,
             },
         }
@@ -233,9 +271,12 @@ mod tests {
     use num::BigInt;
 
     use crate::glacier_vm::value::{ApplyOperatorResult, ConvertResult, Value, ValueType};
+    use crate::glacier_vm::vm::Heap;
 
     #[test]
     fn test_operator() {
+        let h = Heap::default();
+
         let a = Value::Int(6);
         let b = Value::Int(8);
         assert_eq!(a.try_convert(ValueType::Int), ConvertResult::SameType);
@@ -244,11 +285,11 @@ mod tests {
             ConvertResult::Ok(Value::BigInt(BigInt::from(8)))
         );
         assert_eq!(
-            a.apply_operator("+", &b),
+            a.apply_operator("+", &b, &h),
             ApplyOperatorResult::Ok(Value::Int(14))
         );
         assert_eq!(
-            a.apply_operator("???", &b),
+            a.apply_operator("???", &b, &h),
             ApplyOperatorResult::NoSuchOperator
         );
     }

@@ -95,6 +95,8 @@ add_3(65, 15, 10)
     for (code, result) in benchmark_code {
         let mut vm = VM::default();
 
+        vm.use_reference = false;
+
         let start1 = Instant::now();
         let mut ok = true;
         println!("BENCH #{}", i);
@@ -116,13 +118,17 @@ add_3(65, 15, 10)
             println!("VM TIME: {:?}", vm_time);
 
             if let Some(x) = &vm.error {
-                eprintln!("Runtime Error: {}", x.to_string());
+                eprintln!("Runtime Error: {}", x.to_string(&vm.heap));
                 ok = false;
             } else if vm.last_popped != Some(result.clone()) {
                 eprintln!(
                     "Assert Error: Expected {}, got {:?}",
-                    result.to_debug_string(),
-                    vm.last_popped.and_then(|x| Some(x.to_debug_string()))
+                    result.to_debug_string(&vm.heap),
+                    if let Some(x) = vm.last_popped {
+                        Some(x.to_debug_string(&vm.heap))
+                    } else {
+                        None
+                    }
                 );
                 ok = false;
             }

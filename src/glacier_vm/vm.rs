@@ -122,6 +122,8 @@ impl VariableMap {
 /// Last Push Location: location of last object pushed.
 /// Error: error during interpretation.
 /// Line: current line position.
+/// Use Reference: whether to automatically use references. THIS IS EXPERIMENTAL
+/// Use GC: whether to use the simple Garbage Collector after function returns.
 pub struct VM {
     pub heap: Heap,
     pub stack: Heap,
@@ -130,6 +132,8 @@ pub struct VM {
     pub last_push_location: Option<usize>,
     pub error: Option<GlacierError>,
     pub line: usize,
+    pub use_reference: bool,
+    pub use_gc: bool,
 }
 
 impl Default for VM {
@@ -142,6 +146,8 @@ impl Default for VM {
             last_push_location: None,
             error: None,
             line: 0,
+            use_reference: false,
+            use_gc: true,
         }
     }
 }
@@ -183,6 +189,23 @@ impl VM {
         }
     }
 
+    /// Get a variable and return it.
+    pub fn get_variable_location(&mut self, name: String) -> Option<usize> {
+        let res = self.variables.get(&name);
+        if let Some(x) = res {
+            return Some(*x);
+        } else {
+            let b = get_builtin(name.clone());
+            if let Some(b) = b {
+                self.push(b);
+                self.define_variable(name.clone());
+                self.last_push_location
+            } else {
+                None
+            }
+        }
+    }
+
     #[inline]
     /// Creates a new frame/scope
     pub fn new_frame(&mut self) {
@@ -193,11 +216,16 @@ impl VM {
     #[inline]
     /// Exits the nearest scope
     pub fn exit_frame(&mut self) {
-        let m = self.variables.clone();
-        for x in m.map {
-            self.heap.release(x.1);
+        if !self.use_reference {
+            let m = self.variables.clone();
+            for x in m.map {
+                self.heap.release(x.1);
+            }
+            self.variables = *m.parent.unwrap();
+        } else {
+            let m = self.variables.clone();
+            self.variables = *m.parent.unwrap();
         }
-        self.variables = *m.parent.unwrap();
     }
 
     /// Runs the instructions.
@@ -241,11 +269,20 @@ impl VM {
                     self.push(self.heap.value.last().expect("Empty heap").clone());
                 }
                 Instruction::MoveVar(name) => {
-                    if let Some(m) = self.get_variable(name.to_string()).cloned() {
-                        self.push(m);
+                    if self.use_reference {
+                        if let Some(m) = self.get_variable_location(name.to_string()) {
+                            self.push(Value::Reference(m));
+                        } else {
+                            self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
+                            return;
+                        }
                     } else {
-                        self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
-                        return;
+                        if let Some(m) = self.get_variable(name.to_string()).cloned() {
+                            self.push(m);
+                        } else {
+                            self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
+                            return;
+                        }
                     }
                 }
                 Instruction::Var(x) => {
@@ -256,7 +293,7 @@ impl VM {
                     // b x a
                     let a = self.stack.pop();
                     let b = self.stack.pop();
-                    let res = b.apply_operator(x, &a);
+                    let res = b.apply_operator(x, &a, &self.heap);
                     if let ApplyOperatorResult::Ok(y) = res {
                         self.push(y);
                     } else if let ApplyOperatorResult::Error(e) = res {
@@ -270,7 +307,7 @@ impl VM {
 
                 Instruction::UnaryOperator(x) => {
                     let a = self.stack.pop();
-                    let res = a.apply_unary_operator(x);
+                    let res = a.apply_unary_operator(x, &self.heap);
                     if let ApplyOperatorResult::Ok(y) = res {
                         self.push(y);
                     } else if let ApplyOperatorResult::Error(e) = res {
@@ -283,7 +320,10 @@ impl VM {
                 }
 
                 Instruction::Call(x) => {
-                    let callee = self.heap.pop();
+                    let mut callee = self.heap.pop();
+                    while let Value::Reference(addr) = callee {
+                        callee = self.heap.value[addr].clone()
+                    }
                     if let Value::GlacierFunction(inst, name, params) = callee {
                         if *x != params.len() {
                             self.error = Some(GlacierError::ArgumentError(format!(
@@ -343,7 +383,7 @@ impl VM {
 
                 Instruction::GetInstance(x) => {
                     let p = self.heap.pop();
-                    let r = p.get_instance(x);
+                    let r = p.get_instance(x, &self.heap);
                     if let GetInstanceResult::Ok(k) = r {
                         self.push(k);
                     } else if let GetInstanceResult::Error(e) = r {
@@ -369,7 +409,7 @@ impl VM {
                 }
 
                 Instruction::JumpIfFalse(x) => {
-                    if !self.heap.pop().is_truthy() {
+                    if !self.heap.pop().is_truthy(&self.heap) {
                         index = *x;
                         continue;
                     }
@@ -380,6 +420,9 @@ impl VM {
                 }
 
                 Instruction::Noop => {}
+                Instruction::ToggleRef => {
+                    self.use_reference = !self.use_reference;
+                }
 
                 Instruction::SetLine(x) => {
                     self.line = *x;
