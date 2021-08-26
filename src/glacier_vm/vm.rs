@@ -72,7 +72,7 @@ impl Heap {
 /// parent is the outer scope.
 pub struct VariableMap {
     pub map: HashMap<String, usize>,
-    pub parent: Option<Box<VariableMap>>,
+    pub parent: Option<(Box<VariableMap>, usize)>,
 }
 
 impl Default for VariableMap {
@@ -85,10 +85,10 @@ impl Default for VariableMap {
 }
 
 impl VariableMap {
-    pub fn child_of(parent: VariableMap) -> Self {
+    pub fn child_of(parent: VariableMap, location: usize) -> Self {
         VariableMap {
             map: HashMap::with_capacity(128),
-            parent: Some(Box::new(parent)),
+            parent: Some((Box::new(parent), location)),
         }
     }
 
@@ -104,7 +104,7 @@ impl VariableMap {
             res
         } else {
             if let Some(parent) = &self.parent {
-                parent.get(key)
+                parent.0.get(key)
             } else {
                 None
             }
@@ -208,29 +208,38 @@ impl VM {
 
     #[inline]
     /// Creates a new frame/scope
-    pub fn new_frame(&mut self) {
+    pub fn new_frame(&mut self, index: usize) {
         self.last_popped = None;
-        self.variables = VariableMap::child_of(self.variables.clone());
+        self.variables = VariableMap::child_of(self.variables.clone(), index);
     }
 
     #[inline]
     /// Exits the nearest scope
-    pub fn exit_frame(&mut self) {
+    pub fn exit_frame(&mut self) -> usize {
         if !self.use_reference {
             let m = self.variables.clone();
             for x in m.map {
                 self.heap.release(x.1);
             }
-            self.variables = *m.parent.unwrap();
+            let u = m.parent.unwrap();
+            self.variables = *u.0;
+            u.1
         } else {
             let m = self.variables.clone();
-            self.variables = *m.parent.unwrap();
+            let u = m.parent.unwrap();
+            self.variables = *u.0;
+            u.1
         }
     }
 
     /// Runs the instructions.
     pub fn run(&mut self, instructions: Vec<Instruction>) {
-        let mut index = 0;
+        self.run_with_start(instructions, 0, 0);
+    }
+
+    /// Runs the instructions with starting value.
+    pub fn run_with_start(&mut self, instructions: Vec<Instruction>, start: usize, padding: isize) {
+        let mut index = start;
         let l = instructions.len();
         while index < l {
             let i = &instructions[index];
@@ -324,7 +333,7 @@ impl VM {
                     while let Value::Reference(addr) = callee {
                         callee = self.heap.value[addr].clone()
                     }
-                    if let Value::GlacierFunction(inst, name, params) = callee {
+                    if let Value::GlacierFunction(idx, name, params) = callee {
                         if *x != params.len() {
                             self.error = Some(GlacierError::ArgumentError(format!(
                                 "When Calling Function {}: Expected {} arguments, got {}",
@@ -336,7 +345,7 @@ impl VM {
                         }
 
                         // enter a new scope
-                        self.new_frame();
+                        self.new_frame(index);
 
                         for s in params {
                             let k = self.stack.pop();
@@ -344,20 +353,7 @@ impl VM {
                             self.define_variable(s);
                         }
 
-                        self.run(inst);
-                        if let Some(e) = &self.error {
-                            self.error = Some(GlacierError::InFunction(name, Box::new(e.clone())));
-                            self.exit_frame();
-                            return;
-                        }
-
-                        if let Some(ret) = self.last_popped.clone() {
-                            self.push(ret);
-                        } else {
-                            self.push(Value::Null);
-                        }
-
-                        self.exit_frame();
+                        index = idx - 1;
                     } else {
                         let mut arguments = vec![];
                         for _ in 0..*x {
@@ -396,21 +392,20 @@ impl VM {
                 }
 
                 Instruction::MakeCode(x, y, z) => {
-                    if let Some(Instruction::Var(_)) = instructions.get(index + 1) {
-                        self.push_free(Value::GlacierFunction(x.clone(), y.clone(), z.clone()));
-                    } else {
-                        self.push(Value::GlacierFunction(x.clone(), y.clone(), z.clone()));
-                    }
+                    self.push_free(Value::GlacierFunction(*x, y.clone(), z.clone()));
+                    self.define_variable(y.clone());
                 }
 
+                Instruction::Ret => index = self.exit_frame(),
+
                 Instruction::Jump(x) => {
-                    index = *x;
+                    index = (*x as isize + padding) as usize;
                     continue;
                 }
 
                 Instruction::JumpIfFalse(x) => {
                     if !self.heap.pop().is_truthy(&self.heap) {
-                        index = *x;
+                        index = (*x as isize + padding) as usize;
                         continue;
                     }
                 }
@@ -502,7 +497,7 @@ mod tests {
         vm.run(vec![Push(Value::Int(12345)), Var("abc".to_string())]);
 
         // {
-        vm.new_frame();
+        vm.new_frame(0);
 
         // abc  # 12345 because no change
         vm.run(vec![MoveVar("abc".to_string()), Pop]);
@@ -541,39 +536,6 @@ mod tests {
         vm.run(vec![MoveVar("xyz".to_string()), Pop]);
         // does not exist in outer scope.
         assert!(vm.error.is_some());
-    }
-
-    #[test]
-    fn functions() {
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            MakeCode(
-                vec![
-                    MoveVar("a".to_string()),
-                    MoveLastToStack,
-                    MoveVar("b".to_string()),
-                    MoveLastToStack,
-                    BinaryOperator("+".to_string()),
-                    Pop,
-                ],
-                "add".to_string(),
-                vec!["a".to_string(), "b".to_string()],
-            ),
-            Var("add".to_string()),
-        ]);
-
-        vm.run(vec![
-            Push(Value::Int(5)),
-            MoveLastToStack,
-            Push(Value::Int(3)),
-            MoveLastToStack,
-            MoveVar("add".to_string()),
-            Call(2),
-            Pop,
-        ]);
-
-        assert_eq!(vm.last_popped, Some(Value::Int(8)));
     }
 
     #[test]

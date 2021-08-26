@@ -45,9 +45,9 @@ suffix operators. (i++)
 
 | bench\language | **Glacier DEV** | Gorilla 1.0 | Python 3.8.3 | Ruby 2.7.2 |
 |----------------|-----------------|-------------|--------------|------------|
-| 21th - Time    | **0.35s**       | 2.98s       | 0.06s        | 0.13s      |
+| 21th - Time    | **0.31s**       | 2.98s       | 0.06s        | 0.13s      |
 | 21th - CPU     | **1%**          | 80%         | 22%          | 1%         |
-| 26th - Time    | **4.52s**       | DNF         | 0.11s        | 0.15s      |
+| 26th - Time    | **4.17s**       | DNF         | 0.11s        | 0.15s      |
 | 26th - CPU     | **1%**          | DNF         | 14%          | 11%        |
 | 26th - Memory  | **1.4MB**       | 120MB       | ?            | ?          |
 
@@ -55,15 +55,13 @@ As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
 
 ### Improvement Areas
 
-- GC Speed
+- [ ] GC Speed
 
-- Use more CPU
+- [ ] Variable Definition Speed
 
-- Variable Definition Speed
+- [x] Use jumping for functions
 
-- Use jumping for functions
-
-- Further reduce object copying/cloning
+- [ ] Further reduce object copying/cloning
 
 ### Credits:
 

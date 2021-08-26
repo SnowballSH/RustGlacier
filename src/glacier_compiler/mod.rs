@@ -44,15 +44,27 @@ impl<'a> Compiler<'a> {
                 self.result.push(Instruction::Pop);
             }
             Statement::FunctionDeclare(x) => {
+                let jump_index = self.result.len();
+                self.result.push(Instruction::Noop);
+                let index = self.result.len();
+                self.compile(x.body);
+                if let Some(Instruction::Ret) = self.result.last() {
+                } else if let Some(Instruction::Pop) = self.result.last() {
+                    self.result.pop();
+                    self.result.push(Instruction::Ret);
+                } else {
+                    self.result.push(Instruction::Push(Value::Null));
+                    self.result.push(Instruction::Ret);
+                }
+
+                self.result[jump_index] = Instruction::Jump(self.result.len());
+
                 self.update_line(x.pos);
-                let mut new_comp = Compiler::new(self.source);
-                new_comp.compile(x.body);
                 self.result.push(Instruction::MakeCode(
-                    new_comp.result,
+                    index,
                     x.name.to_string(),
                     x.args.iter().map(|x| x.to_string()).collect(),
                 ));
-                self.result.push(Instruction::Var(x.name.to_string()));
             }
         }
     }

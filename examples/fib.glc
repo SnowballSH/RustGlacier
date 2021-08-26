@@ -2,4 +2,4 @@ fn F(i)
     if i <= 1 i
     else F(i - 1) + F(i - 2)
 
-print(F(26))
+print(F(2c))

@@ -20,8 +20,9 @@ pub enum Instruction {
     Jump(usize),
     JumpIfFalse(usize),
 
-    // code len, name, params
-    MakeCode(Vec<Instruction>, String, Vec<String>),
+    // code location, name, params
+    MakeCode(usize, String, Vec<String>),
+    Ret,
 
     Noop,
     ToggleRef,

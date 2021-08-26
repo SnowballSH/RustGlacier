@@ -4,7 +4,6 @@ use std::fmt::{Debug, Formatter};
 use num::BigInt;
 
 use crate::glacier_vm::error::{ErrorType, GlacierError};
-use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
 use crate::glacier_vm::vm::Heap;
 
@@ -30,7 +29,7 @@ pub enum Value {
     BigInt(BigInt),
     Int(i64),
     NativeFunction(FT),
-    GlacierFunction(Vec<Instruction>, String, Vec<String>),
+    GlacierFunction(usize, String, Vec<String>),
     String(String),
     Boolean(bool),
 

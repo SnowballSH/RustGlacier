@@ -50,6 +50,7 @@ pub fn get_builtin(name: String) -> Option<Value> {
         "get" => Some((*GET_FN).clone()),
         "true" => Some(Value::Boolean(true)),
         "false" => Some(Value::Boolean(false)),
+        "null" => Some(Value::Null),
         _ => None,
     }
 }

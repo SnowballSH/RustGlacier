@@ -25,6 +25,7 @@ fn cli() {
     if argv.len() < 2 {
         let mut heap = Heap::default();
         let mut vars = VariableMap::default();
+        let mut insts = vec![];
 
         println!("Welcome to Glacier repl. Type :quit to quit.",);
 
@@ -38,16 +39,17 @@ fn cli() {
             if let Ok(ast) = ast {
                 let mut compiler = Compiler::new(&ip);
                 compiler.compile(ast);
+                let mut insts_copy = insts.clone();
                 let inst = compiler.result.clone();
-
-                // dbg!(&inst);
+                insts_copy.extend(inst.clone());
 
                 let mut vm = VM::default();
 
                 vm.heap = heap.clone();
                 vm.variables = vars.clone();
 
-                vm.run(inst);
+                let l = insts.len();
+                vm.run_with_start(insts_copy, l, l as isize);
                 if let Some(x) = &vm.error {
                     eprintln!("Runtime Error:\n{}", x.to_string(&vm.heap));
                 } else if let Some(l) = &vm.last_popped {
@@ -56,9 +58,11 @@ fn cli() {
                     }
                     heap = vm.heap;
                     vars = vm.variables;
+                    insts.extend(inst);
                 } else {
                     heap = vm.heap;
                     vars = vm.variables;
+                    insts.extend(inst);
                 }
             } else if let Err(e) = ast {
                 eprintln!("Parsing Error:\n{}", e);
