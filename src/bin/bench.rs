@@ -88,6 +88,28 @@ add_3(65, 15, 10)
 "#,
             Value::Int(90),
         ),
+        (
+            r#"
+fn F(i)
+    if i <= 1
+        i
+    else
+        F(i - 1) + F(i - 2)
+    end
+end
+F(25)
+"#,
+            Value::Int(75025),
+        ),
+        (
+            r#"
+fn A(i)
+    if i > 0 A(i - 1)
+    else i
+A(1000)
+"#,
+            Value::Int(0),
+        ),
     ];
 
     let mut i = 0;
@@ -119,6 +141,7 @@ add_3(65, 15, 10)
 
             if let Some(x) = &vm.error {
                 eprintln!("Runtime Error: {}", x.to_string(&vm.heap));
+                eprintln!("LINE {}", vm.line);
                 ok = false;
             } else if vm.last_popped != Some(result.clone()) {
                 eprintln!(
