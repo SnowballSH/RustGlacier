@@ -43,13 +43,11 @@ suffix operators. (i++)
 
 - Fibonacci
 
-| bench\language | **Glacier DEV** | Gorilla 1.0 | Python 3.8.3 | Ruby 2.7.2 |
-|----------------|-----------------|-------------|--------------|------------|
-| 21th - Time    | **0.31s**       | 2.98s       | 0.06s        | 0.13s      |
-| 21th - CPU     | **1%**          | 80%         | 22%          | 1%         |
-| 26th - Time    | **4.17s**       | DNF         | 0.11s        | 0.15s      |
-| 26th - CPU     | **1%**          | DNF         | 14%          | 11%        |
-| 26th - Memory  | **1.4MB**       | 120MB       | ?            | ?          |
+| bench\language | **Glacier DEV** | Gorilla 1.0 | Ruby 2.7.2 |
+|----------------|-----------------|-------------|------------|
+| 21th - Time    | **0.06s**       | 2.98s       | 0.13s      |
+| 26th - Time    | **0.58s**       | DNF         | 0.15s      |
+| 30th - Time    | **3.77s**       | DNF         | 0.27s      |
 
 As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
 
@@ -57,7 +55,7 @@ As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
 
 - [ ] GC Speed
 
-- [ ] Variable Definition Speed
+- [x] Variable Definition Speed
 
 - [x] Use jumping for functions
 

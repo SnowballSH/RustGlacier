@@ -71,44 +71,39 @@ impl Heap {
 /// Represents linking of name to heap location.
 /// parent is the outer scope.
 pub struct VariableMap {
-    pub map: HashMap<String, usize>,
-    pub parent: Option<(Box<VariableMap>, usize)>,
+    pub map: Vec<(HashMap<String, usize>, usize)>,
 }
 
 impl Default for VariableMap {
     fn default() -> Self {
         VariableMap {
-            map: HashMap::with_capacity(256),
-            parent: None,
+            map: vec![(HashMap::with_capacity(64), 0)],
         }
     }
 }
 
 impl VariableMap {
-    pub fn child_of(parent: VariableMap, location: usize) -> Self {
-        VariableMap {
-            map: HashMap::with_capacity(128),
-            parent: Some((Box::new(parent), location)),
-        }
+    pub fn add_child(&mut self, location: usize) {
+        self.map.push((HashMap::with_capacity(32), location));
     }
 
     #[inline]
     pub fn insert(&mut self, key: String, value: usize) {
-        self.map.insert(key, value);
+        self.map.last_mut().unwrap().0.insert(key, value);
     }
 
     #[inline]
     pub fn get(&self, key: &String) -> Option<&usize> {
-        let res = self.map.get(key);
-        if res.is_some() {
-            res
-        } else {
-            if let Some(parent) = &self.parent {
-                parent.0.get(key)
-            } else {
-                None
+        let mut index = self.map.len();
+        let mut res = None;
+        while index > 0 {
+            index -= 1;
+            res = self.map[index].0.get(key);
+            if res.is_some() {
+                break;
             }
         }
+        res
     }
 }
 
@@ -210,25 +205,23 @@ impl VM {
     /// Creates a new frame/scope
     pub fn new_frame(&mut self, index: usize) {
         self.last_popped = None;
-        self.variables = VariableMap::child_of(self.variables.clone(), index);
+        self.variables.add_child(index);
     }
 
     #[inline]
     /// Exits the nearest scope
     pub fn exit_frame(&mut self) -> usize {
         if !self.use_reference {
-            let m = self.variables.clone();
-            for x in m.map {
+            let m = self.variables.map.pop().unwrap();
+            for x in m.0 {
                 self.heap.release(x.1);
             }
-            let u = m.parent.unwrap();
-            self.variables = *u.0;
-            u.1
+            let u = m.1;
+            u
         } else {
-            let m = self.variables.clone();
-            let u = m.parent.unwrap();
-            self.variables = *u.0;
-            u.1
+            let m = self.variables.map.pop().unwrap();
+            let u = m.1;
+            u
         }
     }
 
@@ -506,6 +499,8 @@ mod tests {
 
         // abc = 123
         vm.run(vec![Push(Value::Int(123)), Var("abc".to_string())]);
+
+        // dbg!(&vm.variables);
 
         // abc  # now abc is 123 in this scope
         vm.run(vec![MoveVar("abc".to_string()), Pop]);
