@@ -255,6 +255,16 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
                 pos: pair.as_span(),
             })
         }
+        Rule::empty_return => Statement::EmptyReturn(EmptyReturn {
+            pos: pair.as_span(),
+        }),
+        Rule::nonempty_return => {
+            let mut inner = pair.clone().into_inner();
+            Statement::Return(Return {
+                expr: parse_expression(inner.next().unwrap()),
+                pos: pair.as_span(),
+            })
+        }
         _ => unreachable!(),
     }
 }
@@ -263,9 +273,11 @@ fn parse_program(res: Pairs<Rule>) -> Program {
     let mut ast = vec![];
     for pair in res {
         match pair.as_rule() {
-            Rule::stmt | Rule::expression_stmt | Rule::function_declare => {
-                ast.push(parse_statement(pair))
-            }
+            Rule::stmt
+            | Rule::expression_stmt
+            | Rule::function_declare
+            | Rule::empty_return
+            | Rule::nonempty_return => ast.push(parse_statement(pair)),
             _ => {}
         }
     }

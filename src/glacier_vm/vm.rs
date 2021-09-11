@@ -112,7 +112,7 @@ impl VariableMap {
 /// Heap: main heap of the VM
 /// Stack: stack of the VM, to compute with multiple objects without interrupting the heap.
 ///        Usually an object is popped from heap and pushed to stack, then dropped after computation.
-/// Variables: map of name to location.
+/// Variables: map of name to location. Also contains previous frames.
 /// Last Popped: the last object popped. Useful for repl mode.
 /// Last Push Location: location of last object pushed.
 /// Error: error during interpretation.
@@ -385,11 +385,20 @@ impl VM {
                 }
 
                 Instruction::MakeCode(x, y, z) => {
-                    self.push_free(Value::GlacierFunction(*x, y.clone(), z.clone()));
+                    self.push_free(Value::GlacierFunction(
+                        *x + padding as usize,
+                        y.clone(),
+                        z.clone(),
+                    ));
                     self.define_variable(y.clone());
                 }
 
-                Instruction::Ret => index = self.exit_frame(),
+                Instruction::Ret => {
+                    if self.variables.map.len() == 1 {
+                        return;
+                    }
+                    index = self.exit_frame()
+                }
 
                 Instruction::Jump(x) => {
                     index = (*x as isize + padding) as usize;

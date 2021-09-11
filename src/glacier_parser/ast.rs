@@ -103,6 +103,8 @@ pub struct GetInstance<'a> {
 pub enum Statement<'a> {
     ExprStmt(ExprStmt<'a>),
     FunctionDeclare(FunctionDeclare<'a>),
+    Return(Return<'a>),
+    EmptyReturn(EmptyReturn<'a>),
 }
 
 #[derive(Debug, Clone)]
@@ -116,6 +118,17 @@ pub struct FunctionDeclare<'a> {
     pub name: &'a str,
     pub args: Vec<&'a str>,
     pub body: Program<'a>,
+    pub pos: Span<'a>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Return<'a> {
+    pub expr: Expression<'a>,
+    pub pos: Span<'a>,
+}
+
+#[derive(Debug, Clone)]
+pub struct EmptyReturn<'a> {
     pub pos: Span<'a>,
 }
 

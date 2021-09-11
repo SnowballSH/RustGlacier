@@ -66,6 +66,16 @@ impl<'a> Compiler<'a> {
                     x.args.iter().map(|x| x.to_string()).collect(),
                 ));
             }
+            Statement::EmptyReturn(x) => {
+                self.update_line(x.pos);
+                self.result.push(Instruction::Push(Value::Null));
+                self.result.push(Instruction::Ret);
+            }
+            Statement::Return(x) => {
+                self.compile_expression(x.expr);
+                self.update_line(x.pos);
+                self.result.push(Instruction::Ret);
+            }
         }
     }
 

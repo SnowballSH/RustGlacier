@@ -6,10 +6,11 @@ block_comment = _{ "#*" ~ (block_comment | !"*#" ~ ANY)* ~ "*#" }
 COMMENT = _{ block_comment | ("#" ~ (!NEWLINE ~ ANY)*) }
 
 integer = @{ ASCII_DIGIT{1, 18} }
-identifier = @{ !keyword ~ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_")* }
+idt = @{ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ !(keyword ~ (WHITESPACE | EOI | TERMINATOR)) ~ idt }
 extended_identifier = @{ identifier ~ "?"? }
 keyword = @{
-    "if" | "else" | "while" | "end" | "fn"
+    "if" | "else" | "while" | "end" | "fn" | "ret" | "retn"
 }
 
 string_literal = @{ "\"" ~ literal_char* ~ "\"" }
@@ -17,7 +18,7 @@ literal_char = { escape_sequence | (!"\"" ~ ANY) }
 escape_sequence = _{ "\\\\" | "\\\"" | "\\\'" | "\\n" | "\\r" | "\\t" | "\\0" }
 
 block = {
-    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~  "end") | stmt
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~  "end") | (":" ~ NEWLINE* ~ stmt)
 }
 
 no_else_block = {
@@ -38,6 +39,14 @@ while_loop = {
 
 function_declare = {
     "fn" ~ NEWLINE* ~ identifier ~ NEWLINE* ~ function_params ~ NEWLINE* ~ block
+}
+
+empty_return = {
+    "ret" ~ (TERMINATOR | EOI)
+}
+
+nonempty_return = {
+    "ret" ~ expression
 }
 
 call = {
@@ -109,5 +118,8 @@ expression = { infix | expression_inner }
 expression_stmt = { expression }
 
 stmt = _{
-    expression_stmt | function_declare
+    expression_stmt
+    | function_declare
+    | nonempty_return
+    | empty_return
 }

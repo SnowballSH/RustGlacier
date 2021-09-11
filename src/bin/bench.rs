@@ -110,14 +110,40 @@ A(1000)
 "#,
             Value::Int(0),
         ),
+        (
+            r#"
+fn K(i)
+    i = i + 5
+    if i > 10:
+        ret i
+    i = i + 5
+    if i > 10:
+        ret i
+end
+K(2)
+"#,
+            Value::Int(12),
+        ),
+        (
+            r#"
+fn K(i)
+    i = i + 5
+    if i > 10:
+        ret i
+    i = i + 5
+    if i > 10:
+        ret i
+end
+K(-20)
+"#,
+            Value::Null,
+        ),
     ];
 
     let mut i = 0;
     let start = Instant::now();
     for (code, result) in benchmark_code {
         let mut vm = VM::default();
-
-        vm.use_reference = false;
 
         let start1 = Instant::now();
         let mut ok = true;
