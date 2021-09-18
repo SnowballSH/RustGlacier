@@ -8,6 +8,7 @@ pub enum Instruction {
     MovePush(usize),
     MoveLast,
     MoveVar(String),
+    PushVar(Value, String),
     Var(String),
 
     BinaryOperator(String),

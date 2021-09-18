@@ -21,6 +21,17 @@ impl<'a> Compiler<'a> {
         }
     }
 
+    pub fn clean_up(&mut self) {
+        for i in 0..self.result.len() {
+            if let Some(Instruction::Push(v)) = self.result.get(i - 1) {
+                if let Instruction::Var(n) = unsafe { self.result.get_unchecked(i) } {
+                    self.result[i - 1] = Instruction::PushVar(v.clone(), n.clone());
+                    self.result[i] = Instruction::Noop;
+                }
+            }
+        }
+    }
+
     fn update_line(&mut self, pos: Span) {
         let l = span_to_line(&*self.source, pos);
         if self.last_line == l {
@@ -34,6 +45,7 @@ impl<'a> Compiler<'a> {
         for s in ast {
             self.compile_statement(s);
         }
+        self.clean_up();
     }
 
     pub fn compile_statement(&mut self, stmt: Statement<'a>) {

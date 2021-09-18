@@ -239,13 +239,11 @@ impl VM {
 
             match i {
                 Instruction::Push(x) => {
-                    // Look forward to see if t here is a push
-                    // TODO there is probably a better way. Maybe use a unique instruction for Push + Var?
-                    if let Some(Instruction::Var(_)) = instructions.get(index + 1) {
-                        self.push_free(x.clone());
-                    } else {
-                        self.push(x.clone());
-                    }
+                    self.push(x.clone());
+                }
+                Instruction::PushVar(x, n) => {
+                    self.push_free(x.clone());
+                    self.define_variable(n.clone());
                 }
                 Instruction::Pop => {
                     self.last_popped = Some(self.heap.pop());
