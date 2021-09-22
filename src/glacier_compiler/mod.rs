@@ -22,7 +22,7 @@ impl<'a> Compiler<'a> {
     }
 
     pub fn clean_up(&mut self) {
-        for i in 0..self.result.len() {
+        for i in 1..self.result.len() {
             if let Some(Instruction::Push(v)) = self.result.get(i - 1) {
                 if let Instruction::Var(n) = unsafe { self.result.get_unchecked(i) } {
                     self.result[i - 1] = Instruction::PushVar(v.clone(), n.clone());
@@ -106,7 +106,7 @@ impl<'a> Compiler<'a> {
                 self.update_line(x.pos);
                 self.compile_expression(x.value);
                 self.result.push(Instruction::Var(x.name.to_string()));
-                self.result.push(Instruction::MoveLast);
+                self.result.push(Instruction::MoveLastFromHeapToStack);
             }
             Expression::GetVar(x) => {
                 self.update_line(x.pos);
@@ -115,16 +115,13 @@ impl<'a> Compiler<'a> {
             Expression::Infix(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.left);
-                self.result.push(Instruction::MoveLastToStack);
                 self.compile_expression(x.right);
-                self.result.push(Instruction::MoveLastToStack);
                 self.result
                     .push(Instruction::BinaryOperator(x.operator.to_string()));
             }
             Expression::Prefix(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.right);
-                self.result.push(Instruction::MoveLastToStack);
                 self.result
                     .push(Instruction::UnaryOperator(x.operator.to_string()));
             }
@@ -135,7 +132,6 @@ impl<'a> Compiler<'a> {
                 let mut k = 0;
                 for m in x.arguments {
                     self.compile_expression(m);
-                    self.result.push(Instruction::MoveLastToStack);
                     k += 1;
                 }
                 self.compile_expression(x.callee);

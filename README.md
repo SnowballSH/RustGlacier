@@ -47,7 +47,7 @@ suffix operators. (i++)
 |----------------|-----------------|-------------|------------|
 | 21th - Time    | **0.06s**       | 2.98s       | 0.13s      |
 | 26th - Time    | **0.58s**       | DNF         | 0.15s      |
-| 30th - Time    | **3.77s**       | DNF         | 0.27s      |
+| 30th - Time    | **3.62s**       | DNF         | 0.27s      |
 
 As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
 

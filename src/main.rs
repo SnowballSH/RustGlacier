@@ -37,7 +37,6 @@ fn cli() {
 
             let ast = parse(&ip);
             if let Ok(ast) = ast {
-                dbg!(&ast);
                 let mut compiler = Compiler::new(&ip);
                 compiler.compile(ast);
                 let mut insts_copy = insts.clone();

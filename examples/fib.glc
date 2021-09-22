@@ -1,5 +1,6 @@
 fn F(i)
-    if i <= 1 i
-    else F(i - 1) + F(i - 2)
+    if i <= 1: i
+    else: F(i - 1) + F(i - 2)
+end
 
-print(F(30))
+print(F(26))

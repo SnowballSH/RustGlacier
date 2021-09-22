@@ -1,6 +1,6 @@
 input = get("What is your number?\n>> ")
 
-while !input.i?
+while !input.i?:
     input = get("Sorry, " + input.r + " is not a number. What is your number?\n>> ")
 
 num = input.i

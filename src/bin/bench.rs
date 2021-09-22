@@ -25,18 +25,17 @@ b = 30
         (
             r#"
 condition = !true
-if !condition
+if !condition:
     9 + condition
-else
+else:
     0
 "#,
             Value::Int(9),
         ),
         (
             r#"
-if false
+if false:
     8
-end
 "#,
             Value::Null,
         ),
@@ -106,6 +105,8 @@ F(25)
 fn A(i)
     if i > 0 A(i - 1)
     else i
+    end
+end
 A(1000)
 "#,
             Value::Int(0),

@@ -151,7 +151,7 @@ impl VM {
     #[inline]
     /// pushes an object to the heap, do not use free spots, updating [self.last_push_location]
     pub fn push(&mut self, value: Value) {
-        self.last_push_location = Some(self.heap.push(value));
+        self.stack.push(value);
     }
 
     #[inline]
@@ -175,7 +175,7 @@ impl VM {
         } else {
             let b = get_builtin(name.clone());
             if let Some(b) = b {
-                self.push(b);
+                self.push_free(b);
                 self.define_variable(name.clone());
                 self.get_variable(name.clone())
             } else {
@@ -246,11 +246,11 @@ impl VM {
                     self.define_variable(n.clone());
                 }
                 Instruction::Pop => {
-                    self.last_popped = Some(self.heap.pop());
+                    self.last_popped = Some(self.stack.pop());
                 }
                 Instruction::Move((from, to)) => {
-                    self.heap.value[*to] = self
-                        .heap
+                    self.stack.value[*to] = self
+                        .stack
                         .value
                         .get(*from)
                         .expect("Move not in range")
@@ -258,14 +258,14 @@ impl VM {
                 }
                 Instruction::MovePush(from) => {
                     self.push(
-                        self.heap
+                        self.stack
                             .value
                             .get(*from)
                             .expect("Move not in range")
                             .clone(),
                     );
                 }
-                Instruction::MoveLast => {
+                Instruction::MoveLastFromHeapToStack => {
                     self.push(self.heap.value.last().expect("Empty heap").clone());
                 }
                 Instruction::MoveVar(name) => {
@@ -286,6 +286,8 @@ impl VM {
                     }
                 }
                 Instruction::Var(x) => {
+                    let v = self.stack.pop();
+                    self.push_free(v);
                     self.define_variable(x.clone());
                 }
 
@@ -320,7 +322,7 @@ impl VM {
                 }
 
                 Instruction::Call(x) => {
-                    let mut callee = self.heap.pop();
+                    let mut callee = self.stack.pop();
                     while let Value::Reference(addr) = callee {
                         callee = self.heap.value[addr].clone()
                     }
@@ -369,8 +371,8 @@ impl VM {
                 }
 
                 Instruction::GetInstance(x) => {
-                    let p = self.heap.pop();
-                    let r = p.get_instance(x, &self.heap);
+                    let p = self.stack.pop();
+                    let r = p.get_instance(x, &self.stack);
                     if let GetInstanceResult::Ok(k) = r {
                         self.push(k);
                     } else if let GetInstanceResult::Error(e) = r {
@@ -404,14 +406,14 @@ impl VM {
                 }
 
                 Instruction::JumpIfFalse(x) => {
-                    if !self.heap.pop().is_truthy(&self.heap) {
+                    if !self.stack.pop().is_truthy(&self.stack) {
                         index = (*x as isize + padding) as usize;
                         continue;
                     }
                 }
 
-                Instruction::MoveLastToStack => {
-                    self.stack.push(self.heap.pop());
+                Instruction::MoveLastToHeap => {
+                    self.heap.push(self.stack.pop());
                 }
 
                 Instruction::Noop => {}
@@ -430,239 +432,4 @@ impl VM {
 }
 
 #[cfg(test)]
-mod tests {
-    use num::BigInt;
-
-    use crate::glacier_vm::error::{ErrorType, GlacierError};
-    use crate::glacier_vm::instructions::Instruction::*;
-    use crate::glacier_vm::value::Value;
-    use crate::glacier_vm::vm::VM;
-
-    #[test]
-    fn basic_vm() {
-        let mut vm = VM::default();
-        assert!(vm.get_variable("abcd".to_string()).is_none());
-
-        let number = Value::BigInt(BigInt::from(12345678987654321_i128));
-        vm.push(number.clone());
-        vm.define_variable("abcd".to_string());
-        assert_eq!(vm.get_variable("abcd".to_string()), Some(&number));
-    }
-
-    #[test]
-    fn instructions() {
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(123454321)),
-            Push(Value::Int(987656789)),
-            MovePush(0),
-            Move((1, 0)),
-            Var("onefiveone".to_string()),
-            MovePush(0),
-            Var("ninefivenine".to_string()),
-            MoveVar("onefiveone".to_string()),
-        ]);
-
-        assert_eq!(vm.heap.value.last().unwrap(), &Value::Int(123454321));
-    }
-
-    #[test]
-    fn variables() {
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(123454321)),
-            Var("abc".to_string()),
-            MoveVar("abc".to_string()),
-            Pop,
-        ]);
-
-        assert_eq!(vm.last_popped, Some(Value::Int(123454321)));
-        assert!(vm.error.is_none());
-
-        vm.run(vec![MoveVar("bbc".to_string()), Pop]);
-
-        assert_eq!(
-            vm.error,
-            Some(ErrorType::UndefinedVariable("bbc".to_string()))
-        );
-    }
-
-    #[test]
-    fn frames() {
-        let mut vm = VM::default();
-
-        // abc = 12345
-        vm.run(vec![Push(Value::Int(12345)), Var("abc".to_string())]);
-
-        // {
-        vm.new_frame(0);
-
-        // abc  # 12345 because no change
-        vm.run(vec![MoveVar("abc".to_string()), Pop]);
-        assert!(vm.error.is_none());
-        assert_eq!(vm.last_popped, Some(Value::Int(12345)));
-
-        // abc = 123
-        vm.run(vec![Push(Value::Int(123)), Var("abc".to_string())]);
-
-        // dbg!(&vm.variables);
-
-        // abc  # now abc is 123 in this scope
-        vm.run(vec![MoveVar("abc".to_string()), Pop]);
-        assert!(vm.error.is_none());
-        assert_eq!(vm.last_popped, Some(Value::Int(123)));
-
-        // xyz = 543  # frame-scoped
-        vm.run(vec![Push(Value::Int(543)), Var("xyz".to_string())]);
-
-        // }
-        vm.exit_frame();
-
-        // abc  # 12345 because abc is changed to 123 only in the frame
-        vm.run(vec![MoveVar("abc".to_string()), Pop]);
-        assert!(vm.error.is_none());
-        assert_eq!(vm.last_popped, Some(Value::Int(12345)));
-
-        // Should have two free spots: abc and xyz
-        assert_eq!(vm.heap.available.len(), 2);
-
-        // ii = 8000  # should have a free spot
-        vm.run(vec![Push(Value::Int(8000)), Var("ii".to_string())]);
-
-        assert_eq!(vm.heap.available.len(), 1);
-        // ii would take 1 or 2, technically randomly due to hashmap.
-        assert!(*vm.variables.get(&"ii".to_string()).unwrap() >= 1);
-
-        vm.run(vec![MoveVar("xyz".to_string()), Pop]);
-        // does not exist in outer scope.
-        assert!(vm.error.is_some());
-    }
-
-    #[test]
-    fn binop() {
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(-20)),
-            MoveLastToStack,
-            Push(Value::Int(10)),
-            MoveLastToStack,
-            BinaryOperator("+".to_string()),
-            Pop,
-        ]);
-
-        assert_eq!(vm.last_popped, Some(Value::Int(-10)));
-        assert!(vm.error.is_none());
-
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(10)),
-            MoveLastToStack,
-            Push(Value::Int(0)),
-            MoveLastToStack,
-            BinaryOperator("/".to_string()),
-            Pop,
-        ]);
-
-        assert_eq!(vm.error, Some(GlacierError::ZeroDivisionOrModulo));
-
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(-20)),
-            MoveLastToStack,
-            Push(Value::Int(10)),
-            MoveLastToStack,
-            BinaryOperator("???".to_string()),
-            Pop,
-        ]);
-
-        assert_eq!(
-            vm.error,
-            Some(ErrorType::InvalidBinaryOperation(
-                Value::Int(-20),
-                "???".to_string(),
-                Value::Int(10),
-            ))
-        );
-
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(-5)),
-            MoveLastToStack,
-            UnaryOperator("-".to_string()),
-            Pop,
-        ]);
-
-        assert_eq!(vm.last_popped, Some(Value::Int(5)));
-        assert!(vm.error.is_none());
-
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(-5)),
-            MoveLastToStack,
-            UnaryOperator("???".to_string()),
-            Pop,
-        ]);
-
-        assert_eq!(
-            vm.error,
-            Some(ErrorType::InvalidUnaryOperation(
-                Value::Int(-5),
-                "???".to_string(),
-            ))
-        );
-    }
-
-    #[test]
-    fn if_else() {
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(1)),
-            MoveLastToStack,
-            Push(Value::Int(1)),
-            MoveLastToStack,
-            BinaryOperator("+".to_string()),
-            MoveLastToStack,
-            Push(Value::Int(2)),
-            MoveLastToStack,
-            BinaryOperator("==".to_string()),
-            JumpIfFalse(12),
-            Push(Value::String("yep".to_string())),
-            Jump(13),
-            Push(Value::String("oh no".to_string())),
-            Pop,
-        ]);
-
-        assert!(vm.error.is_none());
-        assert_eq!(vm.last_popped, Some(Value::String("yep".to_string())));
-
-        let mut vm = VM::default();
-
-        vm.run(vec![
-            Push(Value::Int(1)),
-            MoveLastToStack,
-            Push(Value::Int(1)),
-            MoveLastToStack,
-            BinaryOperator("+".to_string()),
-            MoveLastToStack,
-            Push(Value::Int(3)),
-            MoveLastToStack,
-            BinaryOperator("==".to_string()),
-            JumpIfFalse(12),
-            Push(Value::String("oh no".to_string())),
-            Jump(13),
-            Push(Value::Null),
-            Pop,
-        ]);
-
-        assert!(vm.error.is_none());
-        assert_eq!(vm.last_popped, Some(Value::Null));
-    }
-}
+mod tests {}

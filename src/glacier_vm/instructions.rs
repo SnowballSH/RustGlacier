@@ -6,7 +6,7 @@ pub enum Instruction {
     Pop,
     Move((usize, usize)),
     MovePush(usize),
-    MoveLast,
+    MoveLastFromHeapToStack,
     MoveVar(String),
     PushVar(Value, String),
     Var(String),
@@ -16,7 +16,7 @@ pub enum Instruction {
 
     Call(usize),
     GetInstance(String),
-    MoveLastToStack,
+    MoveLastToHeap,
 
     Jump(usize),
     JumpIfFalse(usize),
