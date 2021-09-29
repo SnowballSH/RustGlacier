@@ -13,18 +13,20 @@ Glacier is a dynamically typed programming language continued from [Gorilla](htt
 ### Example: FizzBuzz
 
 ```ruby
-i = 1
-while i <= 30
-    print(
-        if i % 15 == 0
-            "FizzBuzz"
-        else if i % 3 == 0
-            "Fizz"
-        else if i % 5 == 0
-            "Buzz"
-        else i
-    )
-    i = i + 1
+fn fizzbuzz(from, to)
+    i = from
+    while i <= to
+        print(
+            if i % 15 == 0
+                "FizzBuzz"
+            else:if i % 3 == 0
+                "Fizz"
+            else:if i % 5 == 0
+                "Buzz"
+            else: i
+        )
+        i = i + 1
+    end
 end
 ```
 
@@ -32,12 +34,10 @@ end
 
 ```ruby
 fn F(i)
-    if i <= 1 i
-    else F(i - 1) + F(i - 2)
+    if i <= 1: i
+    else: F(i - 1) + F(i - 2)
+end
 ```
-
-Note that Glacier is Work-in-Progress, so this example will change rapidly with the introduction of subroutines and
-suffix operators. (i++)
 
 ### Benchmark
 

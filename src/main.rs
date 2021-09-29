@@ -3,6 +3,8 @@ use std::fs::File;
 use std::io::{Read, Write};
 use std::{io, thread};
 
+use glacier_lang::backends::js::codegen::JSCodeGen;
+use glacier_lang::backends::CodeGen;
 use glacier_lang::glacier_compiler::Compiler;
 use glacier_lang::glacier_parser::parse;
 use glacier_lang::glacier_vm::value::ValueType;
@@ -81,6 +83,24 @@ fn cli() {
 
     let ast = parse(&*code);
     if let Ok(ast) = ast {
+        if let Some(mode) = argv.get(2) {
+            if mode.starts_with("mode=") {
+                let opt = mode.split("mode=").collect::<Vec<&str>>()[1].trim();
+                match opt {
+                    "vm" => {
+                        println!("INFO: using VM");
+                    }
+                    "js" => {
+                        let mut jsgen = JSCodeGen::default();
+                        let res = jsgen.generate(&ast, ());
+                        println!("{}", res);
+                        return;
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         let mut compiler = Compiler::new(&code);
         compiler.compile(ast);
         let inst = compiler.result;

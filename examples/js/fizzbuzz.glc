@@ -1,0 +1,18 @@
+# Fizzbuzz for JS
+
+fn fizzbuzz(from, to)
+    i = from
+    while i <= to
+        if i % 15 == 0
+            k = "FizzBuzz"
+        else:if i % 3 == 0
+            k = "Fizz"
+        else:if i % 5 == 0
+            k = "Buzz"
+        else: k = i
+        console.log(k)
+        i = i + 1
+    end
+end
+
+fizzbuzz(1, 30)
