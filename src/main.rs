@@ -10,6 +10,9 @@ use glacier_lang::glacier_parser::parse;
 use glacier_lang::glacier_vm::value::ValueType;
 use glacier_lang::glacier_vm::vm::{Heap, VariableMap, VM};
 
+use log::{error, info, warn};
+use simple_logger::SimpleLogger;
+
 fn get_input() -> String {
     let mut input = String::new();
     print!("> ");
@@ -22,6 +25,8 @@ fn get_input() -> String {
 }
 
 fn cli() {
+    SimpleLogger::new().init().unwrap();
+
     let argv: Vec<String> = args().collect();
 
     if argv.len() < 2 {
@@ -53,7 +58,7 @@ fn cli() {
                 let l = insts.len();
                 vm.run_with_start(insts_copy, l, l as isize);
                 if let Some(x) = &vm.error {
-                    eprintln!("Runtime Error:\n{}", x.to_string(&vm.heap));
+                    error!("Runtime Error:\n{}", x.to_string(&vm.heap));
                 } else if let Some(l) = &vm.last_popped {
                     if l.value_type() != ValueType::Null {
                         println!("{}", l.to_debug_string(&vm.heap));
@@ -67,7 +72,7 @@ fn cli() {
                     insts.extend(inst);
                 }
             } else if let Err(e) = ast {
-                eprintln!("Parsing Error:\n{}", e);
+                error!("Parsing Error:\n{}", e);
             }
         }
         return;
@@ -87,16 +92,16 @@ fn cli() {
             if mode.starts_with("mode=") {
                 let opt = mode.split("mode=").collect::<Vec<&str>>()[1].trim();
                 match opt {
-                    "vm" => {
-                        println!("INFO: using VM");
-                    }
+                    "vm" => {}
                     "js" => {
                         let mut jsgen = JSCodeGen::default();
                         let res = jsgen.generate(&ast, ());
                         println!("{}", res);
                         return;
                     }
-                    _ => {}
+                    _ => {
+                        warn!("WARNING: invalid mode: {}", opt);
+                    }
                 }
             }
         }
@@ -112,16 +117,16 @@ fn cli() {
             if let Some(option) = argv.get(index) {
                 match option.as_str() {
                     "use_ref" => {
-                        println!("INFO: Using Reference Mode");
-                        eprintln!("WARNING: There will be bugs if you use reference.");
+                        info!("INFO: Using Reference Mode");
+                        warn!("WARNING: There will be bugs if you use reference.");
                         vm.use_reference = true;
                     }
                     "no_gc" => {
-                        println!("INFO: Using NoGC Mode");
+                        info!("INFO: Using NoGC Mode");
                         vm.use_gc = false;
                     }
                     _ => {
-                        eprintln!("WARNING: no such option: {}", option)
+                        warn!("WARNING: no such option: {}", option)
                     }
                 }
             } else {
@@ -132,11 +137,11 @@ fn cli() {
 
         vm.run(inst);
         if let Some(x) = &vm.error {
-            eprintln!("At Line {}, ", vm.line + 1);
-            eprintln!("Runtime Error:\n{}", x.to_string(&vm.heap));
+            error!("At Line {}, ", vm.line + 1);
+            error!("Runtime Error:\n{}", x.to_string(&vm.heap));
         }
     } else if let Err(e) = ast {
-        eprintln!("Parsing Error:\n{}", e);
+        error!("Parsing Error:\n{}", e);
     }
 }
 
