@@ -4,29 +4,30 @@ use crate::glacier_vm::builtins::get_builtin;
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, GetInstanceResult, Value};
+use arrayvec::ArrayVec;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Heap for Glacier VM.
 /// available is the free spots created by GC.
 pub struct Heap {
     pub value: Vec<Value>,
-    pub available: Vec<usize>,
+    pub available: ArrayVec<usize, 4096>,
 }
 
 impl Default for Heap {
     fn default() -> Self {
         Self {
-            value: Vec::with_capacity(512),
-            available: Vec::with_capacity(128),
+            value: Vec::new(),
+            available: ArrayVec::new(),
         }
     }
 }
 
 impl Heap {
-    pub fn with_capacity(x: usize, y: usize) -> Self {
+    pub fn with_capacity(x: usize, _y: usize) -> Self {
         Self {
             value: Vec::with_capacity(x),
-            available: Vec::with_capacity(y),
+            available: ArrayVec::new(),
         }
     }
 

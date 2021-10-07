@@ -6,7 +6,7 @@ block_comment = _{ "#*" ~ (block_comment | !"*#" ~ ANY)* ~ "*#" }
 COMMENT = _{ block_comment | ("#" ~ (!NEWLINE ~ ANY)*) }
 
 integer = @{ ASCII_DIGIT{1, 18} }
-idt = @{ (ASCII_ALPHA | "_" | "$") ~ (ASCII_ALPHANUMERIC | "_")* }
+idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 identifier = @{ !(keyword ~ (WHITESPACE | EOI | TERMINATOR)) ~ idt }
 extended_identifier = @{ identifier ~ "?"? }
 keyword = @{

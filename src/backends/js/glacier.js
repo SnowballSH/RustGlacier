@@ -1,5 +1,8 @@
 const print = console.log;
 
-function set_state(ref, index, val) {
-    ref[index] = val;
-}
+let $Q = [];
+const $P = () => {
+    let res = $Q.pop();
+    return res !== undefined ? res : null;
+};
+const $U = t => $Q.push(t);
