@@ -22,7 +22,7 @@ block = {
 }
 
 no_else_block = {
-    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ !"else" ~ stmt?) | stmt
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ !"else" ~ stmt?) | ":"? ~ stmt
 }
 
 condition_if = {
