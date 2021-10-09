@@ -68,7 +68,7 @@ impl Heap {
 pub struct VariableDefinition {
     pub name: String,
     pub heap_index: usize,
-    pub frame_id: u64,
+    pub frame_id: u32,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -88,7 +88,7 @@ impl Default for VariableMap {
 
 impl VariableMap {
     #[inline]
-    pub fn insert(&mut self, key: String, value: usize, frame_id: u64) {
+    pub fn insert(&mut self, key: String, value: usize, frame_id: u32) {
         self.variables.push(VariableDefinition {
             name: key,
             heap_index: value,
@@ -106,7 +106,7 @@ impl VariableMap {
         None
     }
 
-    pub fn release(&mut self, id: u64) {
+    pub fn release(&mut self, id: u32) {
         let mut to_remove = vec![];
         for (i, item) in self.variables.iter().enumerate().rev() {
             if item.frame_id == id {
@@ -124,7 +124,7 @@ impl VariableMap {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct FrameItem {
     pub position: usize,
-    pub id: u64,
+    pub id: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -232,7 +232,7 @@ impl VM {
     pub fn new_frame(&mut self, index: usize) {
         self.frames.push(FrameItem {
             position: index,
-            id: self.frame_id_rng.next_u64(),
+            id: self.frame_id_rng.next_u32(),
         });
         // println!("ENTER FRAME: {}", &self.frames.last().unwrap().id);
     }
