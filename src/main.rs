@@ -116,11 +116,6 @@ fn cli() {
         loop {
             if let Some(option) = argv.get(index) {
                 match option.as_str() {
-                    "use_ref" => {
-                        info!("INFO: Using Reference Mode");
-                        warn!("WARNING: There will be bugs if you use reference.");
-                        vm.use_reference = true;
-                    }
                     "no_gc" => {
                         info!("INFO: Using NoGC Mode");
                         vm.use_gc = false;

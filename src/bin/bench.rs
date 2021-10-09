@@ -25,7 +25,7 @@ b = 30
         (
             r#"
 condition = !true
-if !condition:
+if !condition
     9 + condition
 else:
     0

@@ -1,0 +1,11 @@
+fn recursive(i)
+    print(i)
+    if i <= 2
+        ret
+    end
+
+    recursive(i - 1)
+    recursive(i - 2)
+end
+
+recursive(6)

@@ -15,6 +15,4 @@ inner = "0.1.1"
 log = "0.4.14"
 simple_logger = "1.13.0"
 arrayvec = "0.7.1"
-
-[dependencies.polar]
-path = "polar"
+rand = "0.8.4"

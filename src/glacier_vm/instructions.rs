@@ -26,7 +26,6 @@ pub enum Instruction {
     Ret,
 
     Noop,
-    ToggleRef,
 
     SetLine(usize),
 }

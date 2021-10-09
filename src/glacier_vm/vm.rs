@@ -1,33 +1,29 @@
-use std::collections::HashMap;
-
 use crate::glacier_vm::builtins::get_builtin;
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
 use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, GetInstanceResult, Value};
-use arrayvec::ArrayVec;
+use rand::rngs::mock::StepRng;
+use rand::RngCore;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Heap for Glacier VM.
 /// available is the free spots created by GC.
 pub struct Heap {
     pub value: Vec<Value>,
-    pub available: ArrayVec<usize, 4096>,
+    pub available: Vec<usize>,
 }
 
 impl Default for Heap {
     fn default() -> Self {
-        Self {
-            value: Vec::new(),
-            available: ArrayVec::new(),
-        }
+        Self::with_capacity(32, 32)
     }
 }
 
 impl Heap {
-    pub fn with_capacity(x: usize, _y: usize) -> Self {
+    pub fn with_capacity(x: usize, y: usize) -> Self {
         Self {
             value: Vec::with_capacity(x),
-            available: ArrayVec::new(),
+            available: Vec::with_capacity(y),
         }
     }
 
@@ -69,66 +65,91 @@ impl Heap {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VariableDefinition {
+    pub name: String,
+    pub heap_index: usize,
+    pub frame_id: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 /// Represents linking of name to heap location.
 /// parent is the outer scope.
 pub struct VariableMap {
-    pub map: Vec<(HashMap<String, usize>, usize)>,
+    pub variables: Vec<VariableDefinition>,
 }
 
 impl Default for VariableMap {
     fn default() -> Self {
         VariableMap {
-            map: vec![(HashMap::with_capacity(64), 0)],
+            variables: Vec::with_capacity(32),
         }
     }
 }
 
 impl VariableMap {
-    pub fn add_child(&mut self, location: usize) {
-        self.map.push((HashMap::with_capacity(32), location));
+    #[inline]
+    pub fn insert(&mut self, key: String, value: usize, frame_id: u64) {
+        self.variables.push(VariableDefinition {
+            name: key,
+            heap_index: value,
+            frame_id,
+        });
     }
 
     #[inline]
-    pub fn insert(&mut self, key: String, value: usize) {
-        self.map.last_mut().unwrap().0.insert(key, value);
+    pub fn get(&self, key: &String) -> Option<usize> {
+        for item in self.variables.iter().rev() {
+            if &item.name == key {
+                return Some(item.heap_index);
+            }
+        }
+        None
     }
 
-    #[inline]
-    pub fn get(&self, key: &String) -> Option<&usize> {
-        let mut index = self.map.len();
-        let mut res = None;
-        while index > 0 {
-            index -= 1;
-            res = self.map[index].0.get(key);
-            if res.is_some() {
+    pub fn release(&mut self, id: u64) {
+        let mut to_remove = vec![];
+        for (i, item) in self.variables.iter().enumerate().rev() {
+            if item.frame_id == id {
+                to_remove.push(i);
+            } else {
                 break;
             }
         }
-        res
+        for i in to_remove {
+            self.variables.remove(i);
+        }
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct FrameItem {
+    pub position: usize,
+    pub id: u64,
+}
+
 #[derive(Clone, Debug)]
-/// Virtual Machine for Glacier. It contains:
-/// Heap: main heap of the VM
-/// Stack: stack of the VM, to compute with multiple objects without interrupting the heap.
-///        Usually an object is popped from heap and pushed to stack, then dropped after computation.
-/// Variables: map of name to location. Also contains previous frames.
-/// Last Popped: the last object popped. Useful for repl mode.
-/// Last Push Location: location of last object pushed.
-/// Error: error during interpretation.
-/// Line: current line position.
-/// Use Reference: whether to automatically use references. THIS IS EXPERIMENTAL
-/// Use GC: whether to use the simple Garbage Collector after function returns.
+/// Virtual Machine for Glacier.
 pub struct VM {
+    /// main heap of the VM
     pub heap: Heap,
+    /// stack of the VM, to compute with multiple objects without interrupting the heap.
+    ///        Usually an object is popped from heap and pushed to stack, then dropped after computation.
     pub stack: Heap,
+    /// map of name to location. Also contains previous frames.
     pub variables: VariableMap,
+    /// the last object popped. Useful for repl mode.
     pub last_popped: Option<Value>,
+    /// location of last object pushed.
     pub last_push_location: Option<usize>,
+    /// error during interpretation.
     pub error: Option<GlacierError>,
+    /// current line position.
     pub line: usize,
-    pub use_reference: bool,
+    /// frame stack
+    pub frames: Vec<FrameItem>,
+    /// frame id rng
+    pub frame_id_rng: StepRng,
+    /// whether to use the simple Garbage Collector after function returns.
     pub use_gc: bool,
 }
 
@@ -142,7 +163,8 @@ impl Default for VM {
             last_push_location: None,
             error: None,
             line: 0,
-            use_reference: false,
+            frames: vec![FrameItem { position: 0, id: 0 }],
+            frame_id_rng: StepRng::new(1, 1),
             use_gc: true,
         }
     }
@@ -164,15 +186,18 @@ impl VM {
     #[inline]
     /// Link [self.last_push_location] to [name]
     pub fn define_variable(&mut self, name: String) {
-        self.variables
-            .insert(name, self.last_push_location.expect("No value pushed"));
+        self.variables.insert(
+            name,
+            self.last_push_location.expect("No value pushed"),
+            self.frames.last().unwrap().id,
+        );
     }
 
     /// Get a variable and return it.
     pub fn get_variable(&mut self, name: String) -> Option<&Value> {
         let res = self.variables.get(&name);
         if let Some(x) = res {
-            return self.heap.value.get(*x);
+            return self.heap.value.get(x);
         } else {
             let b = get_builtin(name.clone());
             if let Some(b) = b {
@@ -185,11 +210,11 @@ impl VM {
         }
     }
 
-    /// Get a variable and return it.
+    /// Get a variable and return its location.
     pub fn get_variable_location(&mut self, name: String) -> Option<usize> {
         let res = self.variables.get(&name);
         if let Some(x) = res {
-            return Some(*x);
+            return Some(x);
         } else {
             let b = get_builtin(name.clone());
             if let Some(b) = b {
@@ -205,25 +230,19 @@ impl VM {
     #[inline]
     /// Creates a new frame/scope
     pub fn new_frame(&mut self, index: usize) {
-        self.last_popped = None;
-        self.variables.add_child(index);
+        self.frames.push(FrameItem {
+            position: index,
+            id: self.frame_id_rng.next_u64(),
+        });
+        // println!("ENTER FRAME: {}", &self.frames.last().unwrap().id);
     }
 
     #[inline]
     /// Exits the nearest scope
-    pub fn exit_frame(&mut self) -> usize {
-        if !self.use_reference {
-            let m = self.variables.map.pop().unwrap();
-            for x in m.0 {
-                self.heap.release(x.1);
-            }
-            let u = m.1;
-            u
-        } else {
-            let m = self.variables.map.pop().unwrap();
-            let u = m.1;
-            u
-        }
+    pub fn exit_frame(&mut self) -> FrameItem {
+        // println!("EXIT FRAME: POP {}", &self.frames.last().unwrap().id);
+        self.variables.release(self.frames.last().unwrap().id);
+        self.frames.pop().expect("No frame to pop")
     }
 
     /// Runs the instructions.
@@ -270,20 +289,11 @@ impl VM {
                     self.push(self.heap.value.last().expect("Empty heap").clone());
                 }
                 Instruction::MoveVar(name) => {
-                    if self.use_reference {
-                        if let Some(m) = self.get_variable_location(name.to_string()) {
-                            self.push(Value::Reference(m));
-                        } else {
-                            self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
-                            return;
-                        }
+                    if let Some(m) = self.get_variable(name.to_string()).cloned() {
+                        self.push(m);
                     } else {
-                        if let Some(m) = self.get_variable(name.to_string()).cloned() {
-                            self.push(m);
-                        } else {
-                            self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
-                            return;
-                        }
+                        self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
+                        return;
                     }
                 }
                 Instruction::Var(x) => {
@@ -395,10 +405,10 @@ impl VM {
                 }
 
                 Instruction::Ret => {
-                    if self.variables.map.len() == 1 {
+                    if self.variables.variables.len() == 1 {
                         return;
                     }
-                    index = self.exit_frame()
+                    index = self.exit_frame().position;
                 }
 
                 Instruction::Jump(x) => {
@@ -418,9 +428,6 @@ impl VM {
                 }
 
                 Instruction::Noop => {}
-                Instruction::ToggleRef => {
-                    self.use_reference = !self.use_reference;
-                }
 
                 Instruction::SetLine(x) => {
                     self.line = *x;
