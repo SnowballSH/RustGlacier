@@ -3,4 +3,4 @@ fn F(i)
     else: F(i - 1) + F(i - 2)
 end
 
-print(F(30))
+print(F(33))

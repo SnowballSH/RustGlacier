@@ -1,17 +1,17 @@
+use io::{Read, Write};
 use std::env::args;
 use std::fs::File;
-use std::io::{Read, Write};
-use std::{io, thread};
-
-use glacier_lang::backends::js::codegen::JSCodeGen;
-use glacier_lang::backends::CodeGen;
-use glacier_lang::glacier_compiler::Compiler;
-use glacier_lang::glacier_parser::parse;
-use glacier_lang::glacier_vm::value::ValueType;
-use glacier_lang::glacier_vm::vm::{Heap, VariableMap, VM};
+use std::io;
 
 use log::{error, info, warn};
 use simple_logger::SimpleLogger;
+
+use glacier_lang::backends::js::codegen::JSCodeGen;
+use glacier_lang::backends::CodeGen;
+use glacier_lang::glacier_compiler::{Compiler, CompilerVariableMap};
+use glacier_lang::glacier_parser::parse;
+use glacier_lang::glacier_vm::value::ValueType;
+use glacier_lang::glacier_vm::vm::{Heap, VariableMap, VM};
 
 fn get_input() -> String {
     let mut input = String::new();
@@ -33,6 +33,9 @@ fn cli() {
         let mut heap = Heap::default();
         let mut vars = VariableMap::default();
         let mut insts = vec![];
+        let mut compvars = CompilerVariableMap::default();
+        compvars.new_frame();
+        vars.new_frame();
 
         println!("Welcome to Glacier repl. Type :quit to quit.",);
 
@@ -45,7 +48,9 @@ fn cli() {
             let ast = parse(&ip);
             if let Ok(ast) = ast {
                 let mut compiler = Compiler::new(&ip);
-                compiler.compile(ast);
+                compiler.variable_map = compvars.clone();
+                compiler.compile_no_new_frame(ast);
+                compvars = compiler.variable_map;
                 let mut insts_copy = insts.clone();
                 let inst = compiler.result.clone();
                 insts_copy.extend(inst.clone());
@@ -140,14 +145,6 @@ fn cli() {
     }
 }
 
-static STACK_SIZE: usize = 1 << 23;
-
 fn main() {
-    let child = thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .name(format!("Glacier Programming Language"))
-        .spawn(cli)
-        .unwrap();
-
-    child.join().unwrap();
+    cli();
 }

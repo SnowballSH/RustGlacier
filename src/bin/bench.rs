@@ -7,6 +7,7 @@ use glacier_lang::glacier_vm::vm::VM;
 
 fn main() {
     let benchmark_code = [
+        // 0
         (
             r#"
 a = 4
@@ -14,6 +15,7 @@ a + 5
 "#,
             Value::Int(9),
         ),
+        // 1
         (
             r#"
 a = -5
@@ -22,6 +24,7 @@ b = 30
 "#,
             Value::Int(5),
         ),
+        // 2
         (
             r#"
 condition = !true
@@ -32,6 +35,7 @@ else:
 "#,
             Value::Int(9),
         ),
+        // 3
         (
             r#"
 if false:
@@ -39,12 +43,14 @@ if false:
 "#,
             Value::Null,
         ),
+        // 4
         (
             r#"
 "Hello, " + "world!"
 "#,
             Value::String(format!("Hello, world!")),
         ),
+        // 5
         (
             r#"
 i = 5
@@ -57,6 +63,7 @@ res
 "#,
             Value::Int(120),
         ),
+        // 6
         (
             r#"
 i = 100
@@ -69,6 +76,7 @@ res
 "#,
             Value::Int(2304),
         ),
+        // 7
         (
             r#"
 # 9742460
@@ -77,6 +85,7 @@ s.i
 "#,
             Value::Int(9742460),
         ),
+        // 8
         (
             r#"
 fn add_3(a, b, c)
@@ -87,6 +96,7 @@ add_3(65, 15, 10)
 "#,
             Value::Int(90),
         ),
+        // 9
         (
             r#"
 fn F(i)
@@ -100,6 +110,7 @@ F(25)
 "#,
             Value::Int(75025),
         ),
+        // 10
         (
             r#"
 fn A(i)
@@ -111,6 +122,7 @@ A(1000)
 "#,
             Value::Int(0),
         ),
+        // 11
         (
             r#"
 fn K(i)
@@ -125,6 +137,7 @@ K(2)
 "#,
             Value::Int(12),
         ),
+        // 12
         (
             r#"
 fn K(i)

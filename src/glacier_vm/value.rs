@@ -29,7 +29,7 @@ pub enum Value {
     BigInt(BigInt),
     Int(i64),
     NativeFunction(FT),
-    GlacierFunction(usize, String, Vec<String>),
+    GlacierFunction(usize, String, Vec<usize>),
     String(String),
     Boolean(bool),
 
@@ -149,6 +149,27 @@ impl Value {
                 )
             }
             _ => self.to_string(heap),
+        }
+    }
+
+    pub fn to_string_u(&self) -> String {
+        match self {
+            Value::BigInt(x) => x.to_string(),
+            Value::Int(x) => x.to_string(),
+            Value::NativeFunction(x) => {
+                format!("{:?}", x)
+            }
+            Value::GlacierFunction(_, y, _) => {
+                format!("Glacier Function {} {:p}", y, self)
+            }
+            Value::String(x) => x.clone(),
+            Value::Boolean(x) => x.to_string(),
+            Value::Null => {
+                format!("Null")
+            }
+            Value::Reference(address) => {
+                format!("{} (reference)", address)
+            }
         }
     }
 

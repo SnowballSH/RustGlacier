@@ -45,11 +45,12 @@ end
 
 | bench\language | **Glacier DEV** | Gorilla 1.0 | Ruby 2.7.2 |
 |----------------|-----------------|-------------|------------|
-| 21th - Time    | **0.06s**       | 2.98s       | 0.13s      |
-| 26th - Time    | **0.37s**       | DNF         | 0.15s      |
-| 30th - Time    | **2.30s**       | DNF         | 0.27s      |
+| 21th - Time    | **0.05s**       | 2.98s       | 0.13s      |
+| 26th - Time    | **0.19s**       | DNF         | 0.15s      |
+| 30th - Time    | **1.07s**       | DNF         | 0.27s      |
+| 33th - Time    | **4.61s**       | DNF         | 0.58s      |
 
-As you can see, compared to its brother Gorilla, Glacier is a LOT faster.
+Compared to its brother Gorilla, Glacier is a LOT faster.
 
 ### Improvement Areas
 
