@@ -2,33 +2,15 @@ use inner::inner;
 
 use crate::glacier_vm::error::GlacierError;
 use crate::glacier_vm::value::{ApplyOperatorResult, ConvertResult, Value, ValueType};
-use crate::glacier_vm::vm::Heap;
 
 /// try to apply an infix operator
-pub fn apply_operator(
-    self_: &Value,
-    name: &str,
-    other: &Value,
-    heap: &Heap,
-) -> ApplyOperatorResult {
-    if let Value::Reference(addr) = other {
-        return self_.apply_operator(name, heap.value.get(*addr).unwrap(), heap);
-    }
+pub fn apply_operator(self_: &Value, name: &str, other: &Value) -> ApplyOperatorResult {
     match name {
         "==" => ApplyOperatorResult::Ok(Value::Boolean(self_ == other)),
         "!=" => ApplyOperatorResult::Ok(Value::Boolean(self_ != other)),
-        "||" => ApplyOperatorResult::Ok(Value::Boolean(
-            self_.is_truthy(heap) || other.is_truthy(heap),
-        )),
-        "&&" => ApplyOperatorResult::Ok(Value::Boolean(
-            self_.is_truthy(heap) && other.is_truthy(heap),
-        )),
+        "||" => ApplyOperatorResult::Ok(Value::Boolean(self_.is_truthy() || other.is_truthy())),
+        "&&" => ApplyOperatorResult::Ok(Value::Boolean(self_.is_truthy() && other.is_truthy())),
         _ => match self_ {
-            Value::Reference(addr) => heap
-                .value
-                .get(*addr)
-                .unwrap()
-                .apply_operator(name, other, heap),
             Value::Int(i) => match name {
                 "+" => {
                     let other_int_try = other.try_convert(ValueType::Int);
@@ -196,13 +178,8 @@ pub fn apply_operator(
     }
 }
 
-pub fn apply_unary_operator(self_: &Value, name: &str, heap: &Heap) -> ApplyOperatorResult {
+pub fn apply_unary_operator(self_: &Value, name: &str) -> ApplyOperatorResult {
     match self_ {
-        Value::Reference(addr) => heap
-            .value
-            .get(*addr)
-            .unwrap()
-            .apply_unary_operator(name, heap),
         Value::Int(x) => match name {
             "-" => ApplyOperatorResult::Ok(Value::Int(-*x)),
             "+" => ApplyOperatorResult::Ok(Value::Int(*x)),

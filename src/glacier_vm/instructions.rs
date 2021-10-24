@@ -41,7 +41,7 @@ impl Instruction {
     pub fn to_string(&self) -> String {
         match self {
             Instruction::Push(x) => {
-                format!("PUSH {}", x.to_string_u())
+                format!("PUSH {}", x.to_debug_string())
             }
             Instruction::Pop => {
                 format!("POP")
@@ -65,7 +65,7 @@ impl Instruction {
                 format!("MOVELOCAL {}", x)
             }
             Instruction::PushLocal(a, b) => {
-                format!("PUSH {} TO LOCAL {}", a.to_string_u(), b)
+                format!("PUSH {} TO LOCAL {}", a.to_debug_string(), b)
             }
             Instruction::DefineLocal(x) => {
                 format!("SETLOCAL {}", x)

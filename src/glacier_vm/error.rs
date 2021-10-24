@@ -1,5 +1,4 @@
 use crate::glacier_vm::value::{Value, ValueType};
-use crate::glacier_vm::vm::Heap;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 #[repr(u8)]
@@ -17,7 +16,7 @@ pub enum ErrorType {
 }
 
 impl ErrorType {
-    pub fn to_string(&self, heap: &Heap) -> String {
+    pub fn to_string(&self) -> String {
         match self {
             ErrorType::UndefinedVariable(name) => {
                 format!("Undefined Variable: {}", name)
@@ -25,13 +24,13 @@ impl ErrorType {
             ErrorType::InvalidBinaryOperation(a, o, b) => {
                 format!(
                     "Invalid Binary Operation: {} {} {}",
-                    a.to_debug_string(heap),
+                    a.to_debug_string(),
                     o,
-                    b.to_debug_string(heap)
+                    b.to_debug_string()
                 )
             }
             ErrorType::InvalidUnaryOperation(a, o) => {
-                format!("Invalid Unary Operation: {}{}", o, a.to_debug_string(heap))
+                format!("Invalid Unary Operation: {}{}", o, a.to_debug_string())
             }
             ErrorType::ZeroDivisionOrModulo => {
                 format!("Division or Modulo by Zero")
@@ -43,14 +42,14 @@ impl ErrorType {
                 format!(
                     "Instance '{}' does not exist on {}",
                     name,
-                    val.to_debug_string(heap)
+                    val.to_debug_string()
                 )
             }
             ErrorType::ArgumentError(x) | ErrorType::ConversionError(x) | ErrorType::Failure(x) => {
                 x.clone()
             }
             ErrorType::InFunction(x, y) => {
-                format!("In Function {}:\n{}", x, y.to_string(heap))
+                format!("In Function {}:\n{}", x, y.to_string())
             }
         }
     }

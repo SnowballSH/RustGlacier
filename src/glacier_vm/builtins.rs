@@ -5,23 +5,22 @@ use lazy_static::lazy_static;
 
 use crate::glacier_vm::error::ErrorType;
 use crate::glacier_vm::value::{CallResult, Value, FT};
-use crate::glacier_vm::vm::Heap;
 
-fn print_fn_internal(_this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult {
+fn print_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
     let mut strings = vec![];
     for a in arguments {
-        strings.push(a.to_string(heap));
+        strings.push(a.to_string());
     }
     let res = strings.join(" ");
     println!("{}", res);
     CallResult::Ok(Value::Null)
 }
 
-fn get_input_fn_internal(_this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult {
+fn get_input_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
     let prompt = if arguments.len() == 0 {
         String::new()
     } else if arguments.len() == 1 {
-        arguments[0].to_string(heap)
+        arguments[0].to_string()
     } else {
         return CallResult::Error(ErrorType::ArgumentError(format!(
             "get() requires 0 or 1 argument, got {}",

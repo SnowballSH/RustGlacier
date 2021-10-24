@@ -274,12 +274,10 @@ impl VM {
                     self.last_popped = Some(self.stack.pop());
                 }
                 Instruction::Move((from, to)) => {
-                    unsafe {
-                        self.stack.value[*to] = self.stack.value.get_unchecked(*from).clone()
-                    };
+                    self.stack.value[*to] = self.stack.value.get(*from).unwrap().clone()
                 }
                 Instruction::MovePush(from) => {
-                    self.push(unsafe { self.stack.value.get_unchecked(*from).clone() });
+                    self.push(self.stack.value.get(*from).unwrap().clone());
                 }
                 Instruction::MoveLastFromHeapToStack => {
                     self.push(self.heap.value.last().expect("Empty heap").clone());
@@ -296,7 +294,10 @@ impl VM {
 
                 Instruction::MoveFree(name) => {
                     self.push(
-                        unsafe { self.heap.value.get_unchecked(self.frees.get(name).unwrap()) }
+                        self.heap
+                            .value
+                            .get(self.frees.get(name).unwrap())
+                            .unwrap()
                             .clone(),
                     );
                 }
@@ -339,7 +340,7 @@ impl VM {
                     // b x a
                     let a = self.stack.pop();
                     let b = self.stack.pop();
-                    let res = b.apply_operator(x, &a, &self.heap);
+                    let res = b.apply_operator(x, &a);
                     if let ApplyOperatorResult::Ok(y) = res {
                         self.push(y);
                     } else if let ApplyOperatorResult::Error(e) = res {
@@ -353,7 +354,7 @@ impl VM {
 
                 Instruction::UnaryOperator(x) => {
                     let a = self.stack.pop();
-                    let res = a.apply_unary_operator(x, &self.heap);
+                    let res = a.apply_unary_operator(x);
                     if let ApplyOperatorResult::Ok(y) = res {
                         self.push(y);
                     } else if let ApplyOperatorResult::Error(e) = res {
@@ -366,10 +367,7 @@ impl VM {
                 }
 
                 Instruction::Call(x) => {
-                    let mut callee = self.stack.pop();
-                    while let Value::Reference(addr) = callee {
-                        callee = self.heap.value[addr].clone()
-                    }
+                    let callee = self.stack.pop();
                     if let Value::GlacierFunction(idx, name, params) = callee {
                         if *x != params.len() {
                             self.error = Some(GlacierError::ArgumentError(format!(
@@ -397,7 +395,7 @@ impl VM {
                             arguments.push(self.stack.pop());
                         }
 
-                        let res = callee.call(arguments, &self.heap);
+                        let res = callee.call(arguments);
                         match res {
                             CallResult::Ok(x) => {
                                 self.push(x);
@@ -416,7 +414,7 @@ impl VM {
 
                 Instruction::GetInstance(x) => {
                     let p = self.stack.pop();
-                    let r = p.get_instance(x, &self.stack);
+                    let r = p.get_instance(x);
                     if let GetInstanceResult::Ok(k) = r {
                         self.push(k);
                     } else if let GetInstanceResult::Error(e) = r {
@@ -450,7 +448,7 @@ impl VM {
                 }
 
                 Instruction::JumpIfFalse(x) => {
-                    if !self.stack.pop().is_truthy(&self.stack) {
+                    if !self.stack.pop().is_truthy() {
                         index = (*x as isize + padding) as usize;
                         continue;
                     }

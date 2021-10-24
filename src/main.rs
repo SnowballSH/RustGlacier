@@ -63,10 +63,10 @@ fn cli() {
                 let l = insts.len();
                 vm.run_with_start(insts_copy, l, l as isize);
                 if let Some(x) = &vm.error {
-                    error!("Runtime Error:\n{}", x.to_string(&vm.heap));
+                    error!("Runtime Error:\n{}", x.to_string());
                 } else if let Some(l) = &vm.last_popped {
                     if l.value_type() != ValueType::Null {
-                        println!("{}", l.to_debug_string(&vm.heap));
+                        println!("{}", l.to_debug_string());
                     }
                     heap = vm.heap;
                     vars = vm.variables;
@@ -138,7 +138,7 @@ fn cli() {
         vm.run(inst);
         if let Some(x) = &vm.error {
             error!("At Line {}, ", vm.line + 1);
-            error!("Runtime Error:\n{}", x.to_string(&vm.heap));
+            error!("Runtime Error:\n{}", x.to_string());
         }
     } else if let Err(e) = ast {
         error!("Parsing Error:\n{}", e);

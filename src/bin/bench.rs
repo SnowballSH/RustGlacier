@@ -180,15 +180,15 @@ K(-20)
             println!("VM TIME: {:?}", vm_time);
 
             if let Some(x) = &vm.error {
-                eprintln!("Runtime Error: {}", x.to_string(&vm.heap));
+                eprintln!("Runtime Error: {}", x.to_string());
                 eprintln!("LINE {}", vm.line);
                 ok = false;
             } else if vm.last_popped != Some(result.clone()) {
                 eprintln!(
                     "Assert Error: Expected {}, got {:?}",
-                    result.to_debug_string(&vm.heap),
+                    result.to_debug_string(),
                     if let Some(x) = vm.last_popped {
-                        Some(x.to_debug_string(&vm.heap))
+                        Some(x.to_debug_string())
                     } else {
                         None
                     }
