@@ -1,6 +1,3 @@
-use rand::rngs::mock::StepRng;
-use rand::RngCore;
-
 use crate::glacier_vm::builtins::get_builtin;
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
@@ -117,7 +114,6 @@ impl VariableMap {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct FrameItem {
     pub position: usize,
-    pub id: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -142,8 +138,6 @@ pub struct VM {
     pub line: usize,
     /// frame stack
     pub frames: Vec<FrameItem>,
-    /// frame id rng
-    pub frame_id_rng: StepRng,
     /// whether to use the simple Garbage Collector after function returns.
     pub use_gc: bool,
 }
@@ -159,8 +153,7 @@ impl Default for VM {
             last_push_location: None,
             error: None,
             line: 0,
-            frames: vec![FrameItem { position: 0, id: 0 }],
-            frame_id_rng: StepRng::new(1, 1),
+            frames: vec![FrameItem { position: 0 }],
             use_gc: true,
         }
     }
@@ -235,7 +228,6 @@ impl VM {
         self.frees.new_frame();
         self.frames.push(FrameItem {
             position: index,
-            id: self.frame_id_rng.next_u32(),
         });
         // println!("ENTER FRAME: {}", &self.frames.last().unwrap().id);
     }
