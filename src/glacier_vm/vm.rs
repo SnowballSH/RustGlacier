@@ -202,25 +202,6 @@ impl VM {
         }
     }
 
-    /*
-    /// Get a variable and return its location.
-    pub fn get_variable_location(&mut self, name: String) -> Option<usize> {
-        let res = self.variables.get(&name);
-        if let Some(x) = res {
-            return Some(x);
-        } else {
-            let b = get_builtin(name.clone());
-            if let Some(b) = b {
-                self.push(b);
-                self.define_variable(name.clone());
-                self.last_push_location
-            } else {
-                None
-            }
-        }
-    }
-     */
-
     #[inline]
     /// Creates a new frame/scope
     pub fn new_frame(&mut self, index: usize) {
@@ -229,13 +210,11 @@ impl VM {
         self.frames.push(FrameItem {
             position: index,
         });
-        // println!("ENTER FRAME: {}", &self.frames.last().unwrap().id);
     }
 
     #[inline]
     /// Exits the nearest scope
     pub fn exit_frame(&mut self) -> FrameItem {
-        // println!("EXIT FRAME: POP {}", &self.frames.last().unwrap().id);
         self.variables.release();
         self.frees.release();
         self.frames.pop().expect("No frame to pop")

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
-use num::BigInt;
+use num::{BigInt, Integer, One, Zero};
 
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
@@ -23,14 +23,37 @@ impl Debug for FT {
     }
 }
 
+#[derive(Clone)]
+pub struct NModule {
+    pub name: String,
+    pub get_instance: fn(name: &str) -> GetInstanceResult,
+}
+
+impl PartialEq for NModule {
+    fn eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+
+impl Eq for NModule {}
+
+impl Debug for NModule {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.write_str(&*format!("Native Module {}", self.name))
+    }
+}
+
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Value {
     BigInt(BigInt),
     Int(i64),
     NativeFunction(FT),
+    NativeModule(NModule),
     GlacierFunction(usize, String, Vec<usize>),
     String(String),
     Boolean(bool),
+
+    Vector(Vec<usize>),
 
     Null,
 }
@@ -40,9 +63,12 @@ pub enum ValueType {
     BigInt,
     Int,
     NativeFunction,
+    NativeModule,
     GlacierFunction,
     String,
     Boolean,
+
+    Vector,
 
     Null,
 }
@@ -59,6 +85,9 @@ impl ValueType {
             ValueType::NativeFunction => {
                 format!("NativeFunction")
             }
+            ValueType::NativeModule => {
+                format!("NativeModule")
+            }
             ValueType::GlacierFunction => {
                 format!("GlacierFunction")
             }
@@ -70,6 +99,9 @@ impl ValueType {
             }
             ValueType::Null => {
                 format!("Null")
+            }
+            ValueType::Vector => {
+                format!("Vector")
             }
         }
     }
@@ -111,11 +143,17 @@ impl Value {
             Value::NativeFunction(x) => {
                 format!("{:?}", x)
             }
+            Value::NativeModule(x) => {
+                format!("{:?}", x)
+            }
             Value::GlacierFunction(_, y, _) => {
                 format!("Glacier Function {} {:p}", y, self)
             }
             Value::String(x) => x.clone(),
             Value::Boolean(x) => x.to_string(),
+            Value::Vector(x) => {
+                format!("Vector [{}]", x.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", "))
+            }
             Value::Null => {
                 format!("Null")
             }
@@ -126,6 +164,9 @@ impl Value {
         match self {
             Value::String(x) => {
                 format!("\"{}\"", x)
+            }
+            Value::Vector(x) => {
+                format!("Vector [{}]", x.iter().map(|x| x.to_debug_string()).collect::<Vec<String>>().join(", "))
             }
             _ => self.to_string(),
         }
@@ -155,9 +196,11 @@ impl Value {
             Value::BigInt(_) => ValueType::BigInt,
             Value::Int(_) => ValueType::Int,
             Value::NativeFunction(_) => ValueType::NativeFunction,
+            Value::NativeModule(_) => ValueType::NativeModule,
             Value::GlacierFunction(..) => ValueType::GlacierFunction,
             Value::String(_) => ValueType::String,
             Value::Boolean(_) => ValueType::Boolean,
+            Value::Vector(_) => ValueType::Vector,
             Value::Null => ValueType::Null,
         }
     }
@@ -182,6 +225,9 @@ impl Value {
     }
 
     pub fn get_instance(&self, name: &str) -> GetInstanceResult {
+        if let Value::NativeModule(nm) = self {
+            return (nm.get_instance)(name);
+        }
         match name {
             "b" => GetInstanceResult::Ok(Value::Boolean(self.is_truthy())),
             "s" => GetInstanceResult::Ok(Value::String(self.to_string())),
@@ -209,10 +255,23 @@ impl Value {
                     }
                     _ => GetInstanceResult::NoSuchInstance,
                 },
+
                 Value::Boolean(s) => match name {
                     "i" => GetInstanceResult::Ok(Value::Int(*s as i64)),
                     _ => GetInstanceResult::NoSuchInstance,
                 },
+
+                Value::Int(i) => match name {
+                    "zero?" => GetInstanceResult::Ok(Value::Boolean(i.is_zero())),
+                    "one?" => GetInstanceResult::Ok(Value::Boolean(i.is_one())),
+                    "pos?" => GetInstanceResult::Ok(Value::Boolean(i.is_positive())),
+                    "neg?" => GetInstanceResult::Ok(Value::Boolean(i.is_negative())),
+                    "even?" => GetInstanceResult::Ok(Value::Boolean(i.is_even())),
+                    "odd?" => GetInstanceResult::Ok(Value::Boolean(i.is_odd())),
+                    "abs" => GetInstanceResult::Ok(Value::Int(i.abs())),
+                    _ => GetInstanceResult::NoSuchInstance,
+                }
+
                 _ => GetInstanceResult::NoSuchInstance,
             },
         }
@@ -231,12 +290,9 @@ mod tests {
     use num::BigInt;
 
     use crate::glacier_vm::value::{ApplyOperatorResult, ConvertResult, Value, ValueType};
-    use crate::glacier_vm::vm::Heap;
 
     #[test]
     fn test_operator() {
-        let h = Heap::default();
-
         let a = Value::Int(6);
         let b = Value::Int(8);
         assert_eq!(a.try_convert(ValueType::Int), ConvertResult::SameType);

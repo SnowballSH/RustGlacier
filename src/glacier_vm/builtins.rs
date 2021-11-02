@@ -4,7 +4,7 @@ use std::io::Write;
 use lazy_static::lazy_static;
 
 use crate::glacier_vm::error::ErrorType;
-use crate::glacier_vm::value::{CallResult, Value, FT};
+use crate::glacier_vm::value::{CallResult, FT, GetInstanceResult, NModule, Value};
 
 fn print_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
     let mut strings = vec![];
@@ -37,9 +37,22 @@ fn get_input_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
     CallResult::Ok(Value::String(input.trim_end().to_string()))
 }
 
+fn vector_instances(name: &str) -> GetInstanceResult {
+    match name {
+        "new" => {
+            GetInstanceResult::Ok(Value::Vector(Vec::new()))
+        }
+        _ => GetInstanceResult::NoSuchInstance
+    }
+}
+
 lazy_static! {
     pub static ref PRINT_FN: Value = Value::NativeFunction(FT(print_fn_internal));
     pub static ref GET_FN: Value = Value::NativeFunction(FT(get_input_fn_internal));
+    pub static ref VECTOR_MOD: Value = Value::NativeModule(NModule {
+        name: "Vector".to_string(),
+        get_instance: vector_instances,
+    });
 }
 
 /// Gets a builtin from a string.
@@ -50,6 +63,9 @@ pub fn get_builtin(name: String) -> Option<Value> {
         "true" => Some(Value::Boolean(true)),
         "false" => Some(Value::Boolean(false)),
         "null" => Some(Value::Null),
+
+        "Vector" => Some((*VECTOR_MOD).clone()),
+
         _ => None,
     }
 }
