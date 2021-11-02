@@ -111,7 +111,7 @@ impl JSCodeGen {
                     "$P(),".repeat(args.len()),
                 ));
             }
-            Expression::GetInstance(g) => {
+            Expression::GetProperty(g) => {
                 res.push_str(&*format!("{};$P().{}", self.gen_expr(&g.parent), g.name));
             }
             Expression::Index(i) => {

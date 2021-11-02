@@ -166,7 +166,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                     arguments: n.into_inner().map(|w| parse_expression(w)).collect(),
                     pos: pair.as_span(),
                 })),
-                Rule::field => Expression::GetInstance(Box::new(GetInstance {
+                Rule::field => Expression::GetProperty(Box::new(GetProperty {
                     parent: parse_expression(res),
                     name: n.into_inner().next().unwrap().as_str(),
                     pos: pair.as_span(),
@@ -191,7 +191,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                         arguments: xx.into_inner().map(|w| parse_expression(w)).collect(),
                         pos: pair.as_span(),
                     })),
-                    Rule::field => Expression::GetInstance(Box::new(GetInstance {
+                    Rule::field => Expression::GetProperty(Box::new(GetProperty {
                         parent: callee,
                         name: xx.into_inner().next().unwrap().as_str(),
                         pos: pair.as_span(),

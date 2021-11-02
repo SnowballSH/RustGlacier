@@ -9,7 +9,7 @@ pub enum Expression<'a> {
     Infix(Box<Infix<'a>>),
     Prefix(Box<Prefix<'a>>),
     Call(Box<Call<'a>>),
-    GetInstance(Box<GetInstance<'a>>),
+    GetProperty(Box<GetProperty<'a>>),
     Index(Box<Index<'a>>),
     Vec_(Box<VectorDec<'a>>),
 
@@ -93,7 +93,7 @@ pub struct VectorDec<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct GetInstance<'a> {
+pub struct GetProperty<'a> {
     pub parent: Expression<'a>,
     pub name: &'a str,
     pub pos: Span<'a>,

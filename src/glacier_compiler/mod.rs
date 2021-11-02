@@ -305,11 +305,11 @@ impl<'a> Compiler<'a> {
                 self.result.push(Instruction::Push(Value::Null));
             }
 
-            Expression::GetInstance(x) => {
+            Expression::GetProperty(x) => {
                 self.update_line(x.pos);
                 self.compile_expression(x.parent);
                 self.result
-                    .push(Instruction::GetInstance(x.name.to_string()));
+                    .push(Instruction::GetProperty(x.name.to_string()));
             }
             _ => unimplemented!(),
         }

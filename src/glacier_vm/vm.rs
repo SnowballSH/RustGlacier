@@ -1,7 +1,7 @@
 use crate::glacier_vm::builtins::get_builtin;
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::instructions::Instruction;
-use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, GetInstanceResult, Value};
+use crate::glacier_vm::value::{ApplyOperatorResult, CallResult, GetPropertyResult, Value};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 /// Heap for Glacier VM.
@@ -366,7 +366,7 @@ impl VM {
                             arguments.push(self.stack.pop());
                         }
 
-                        let res = callee.call(arguments);
+                        let res = callee.call(arguments, &self.heap);
                         match res {
                             CallResult::Ok(x) => {
                                 self.push(x);
@@ -383,16 +383,16 @@ impl VM {
                     }
                 }
 
-                Instruction::GetInstance(x) => {
+                Instruction::GetProperty(x) => {
                     let p = self.stack.pop();
-                    let r = p.get_instance(x);
-                    if let GetInstanceResult::Ok(k) = r {
+                    let r = p.get_property(x, &mut self.heap);
+                    if let GetPropertyResult::Ok(k) = r {
                         self.push(k);
-                    } else if let GetInstanceResult::Error(e) = r {
+                    } else if let GetPropertyResult::Error(e) = r {
                         self.error = Some(e);
                         return;
                     } else {
-                        self.error = Some(ErrorType::NoInstance(p, x.to_string()));
+                        self.error = Some(ErrorType::NoProperty(p, x.to_string()));
                         return;
                     }
                 }

@@ -4,23 +4,24 @@ use std::io::Write;
 use lazy_static::lazy_static;
 
 use crate::glacier_vm::error::ErrorType;
-use crate::glacier_vm::value::{CallResult, FT, GetInstanceResult, NModule, Value};
+use crate::glacier_vm::value::{CallResult, FT, GetPropertyResult, NModule, Value};
+use crate::glacier_vm::vm::Heap;
 
-fn print_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
+fn print_fn_internal(_this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult {
     let mut strings = vec![];
     for a in arguments {
-        strings.push(a.to_string());
+        strings.push(a.to_string(heap));
     }
     let res = strings.join(" ");
     println!("{}", res);
     CallResult::Ok(Value::Null)
 }
 
-fn get_input_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
+fn get_input_fn_internal(_this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult {
     let prompt = if arguments.len() == 0 {
         String::new()
     } else if arguments.len() == 1 {
-        arguments[0].to_string()
+        arguments[0].to_string(heap)
     } else {
         return CallResult::Error(ErrorType::ArgumentError(format!(
             "get() requires 0 or 1 argument, got {}",
@@ -37,12 +38,12 @@ fn get_input_fn_internal(_this: &Value, arguments: Vec<Value>) -> CallResult {
     CallResult::Ok(Value::String(input.trim_end().to_string()))
 }
 
-fn vector_instances(name: &str) -> GetInstanceResult {
+fn vector_propertys(name: &str) -> GetPropertyResult {
     match name {
         "new" => {
-            GetInstanceResult::Ok(Value::Vector(Vec::new()))
+            GetPropertyResult::Ok(Value::Vector(Vec::new()))
         }
-        _ => GetInstanceResult::NoSuchInstance
+        _ => GetPropertyResult::NoSuchProperty
     }
 }
 
@@ -51,7 +52,7 @@ lazy_static! {
     pub static ref GET_FN: Value = Value::NativeFunction(FT(get_input_fn_internal));
     pub static ref VECTOR_MOD: Value = Value::NativeModule(NModule {
         name: "Vector".to_string(),
-        get_instance: vector_instances,
+        get_property: vector_propertys,
     });
 }
 

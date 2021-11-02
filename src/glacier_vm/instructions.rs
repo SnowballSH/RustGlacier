@@ -22,7 +22,7 @@ pub enum Instruction {
     UnaryOperator(String),
 
     Call(usize),
-    GetInstance(String),
+    GetProperty(String),
     MoveLastToHeap,
 
     Jump(usize),
@@ -41,7 +41,7 @@ impl Instruction {
     pub fn to_string(&self) -> String {
         match self {
             Instruction::Push(x) => {
-                format!("PUSH {}", x.to_debug_string())
+                format!("PUSH {}", x.to_simple_string())
             }
             Instruction::Pop => {
                 format!("POP")
@@ -65,7 +65,7 @@ impl Instruction {
                 format!("MOVELOCAL {}", x)
             }
             Instruction::PushLocal(a, b) => {
-                format!("PUSH {} TO LOCAL {}", a.to_debug_string(), b)
+                format!("PUSH {} TO LOCAL {}", a.to_simple_string(), b)
             }
             Instruction::DefineLocal(x) => {
                 format!("SETLOCAL {}", x)
@@ -82,8 +82,8 @@ impl Instruction {
             Instruction::Call(x) => {
                 format!("CALL {}", x)
             }
-            Instruction::GetInstance(x) => {
-                format!("GETINSTANCE {}", x)
+            Instruction::GetProperty(x) => {
+                format!("GETPROPERTY {}", x)
             }
             Instruction::MoveLastToHeap => {
                 format!("MOVE LAST TO HEAP")

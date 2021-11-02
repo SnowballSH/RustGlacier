@@ -5,9 +5,10 @@ use num::{BigInt, Integer, One, Zero};
 
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
+use crate::glacier_vm::vm::Heap;
 
 #[derive(Clone)]
-pub struct FT(pub fn(this: &Value, arguments: Vec<Value>) -> CallResult);
+pub struct FT(pub fn(this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult);
 
 impl PartialEq for FT {
     fn eq(&self, other: &Self) -> bool {
@@ -26,7 +27,7 @@ impl Debug for FT {
 #[derive(Clone)]
 pub struct NModule {
     pub name: String,
-    pub get_instance: fn(name: &str) -> GetInstanceResult,
+    pub get_property: fn(name: &str) -> GetPropertyResult,
 }
 
 impl PartialEq for NModule {
@@ -122,9 +123,9 @@ pub enum ApplyOperatorResult {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum GetInstanceResult {
+pub enum GetPropertyResult {
     Ok(Value),
-    NoSuchInstance,
+    NoSuchProperty,
     Error(GlacierError),
 }
 
@@ -136,7 +137,7 @@ pub enum CallResult {
 }
 
 impl Value {
-    pub fn to_string(&self) -> String {
+    pub fn to_string(&self, heap: &Heap) -> String {
         match self {
             Value::BigInt(x) => x.to_string(),
             Value::Int(x) => x.to_string(),
@@ -152,7 +153,7 @@ impl Value {
             Value::String(x) => x.clone(),
             Value::Boolean(x) => x.to_string(),
             Value::Vector(x) => {
-                format!("Vector [{}]", x.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", "))
+                format!("Vector [{}]", x.iter().map(|x| heap.value[*x].to_string(heap)).collect::<Vec<String>>().join(", "))
             }
             Value::Null => {
                 format!("Null")
@@ -160,15 +161,36 @@ impl Value {
         }
     }
 
-    pub fn to_debug_string(&self) -> String {
+    pub fn to_simple_string(&self) -> String {
+        match self {
+            Value::BigInt(x) => x.to_string(),
+            Value::Int(x) => x.to_string(),
+            Value::NativeFunction(x) => {
+                format!("{:?}", x)
+            }
+            Value::NativeModule(x) => {
+                format!("{:?}", x)
+            }
+            Value::GlacierFunction(_, y, _) => {
+                format!("Glacier Function {} {:p}", y, self)
+            }
+            Value::String(x) => x.clone(),
+            Value::Boolean(x) => x.to_string(),
+            Value::Vector(_) => {
+                format!("Vector")
+            }
+            Value::Null => {
+                format!("Null")
+            }
+        }
+    }
+
+    pub fn to_debug_string(&self, heap: &Heap) -> String {
         match self {
             Value::String(x) => {
                 format!("\"{}\"", x)
             }
-            Value::Vector(x) => {
-                format!("Vector [{}]", x.iter().map(|x| x.to_debug_string()).collect::<Vec<String>>().join(", "))
-            }
-            _ => self.to_string(),
+            _ => self.to_string(heap),
         }
     }
 
@@ -224,22 +246,22 @@ impl Value {
         }
     }
 
-    pub fn get_instance(&self, name: &str) -> GetInstanceResult {
+    pub fn get_property(&self, name: &str, heap: &mut Heap) -> GetPropertyResult {
         if let Value::NativeModule(nm) = self {
-            return (nm.get_instance)(name);
+            return (nm.get_property)(name);
         }
         match name {
-            "b" => GetInstanceResult::Ok(Value::Boolean(self.is_truthy())),
-            "s" => GetInstanceResult::Ok(Value::String(self.to_string())),
-            "r" => GetInstanceResult::Ok(Value::String(self.to_debug_string())),
+            "b" => GetPropertyResult::Ok(Value::Boolean(self.is_truthy())),
+            "s" => GetPropertyResult::Ok(Value::String(self.to_string(heap))),
+            "r" => GetPropertyResult::Ok(Value::String(self.to_debug_string(heap))),
             _ => match self {
                 Value::String(s) => match name {
                     "i" => {
                         let try_ = s.parse::<i64>();
                         if let Ok(x) = try_ {
-                            GetInstanceResult::Ok(Value::Int(x))
+                            GetPropertyResult::Ok(Value::Int(x))
                         } else {
-                            GetInstanceResult::Error(ErrorType::ConversionError(format!(
+                            GetPropertyResult::Error(ErrorType::ConversionError(format!(
                                 "Failed to parse {:?} to 64-bit integer",
                                 s
                             )))
@@ -248,38 +270,38 @@ impl Value {
                     "i?" => {
                         let try_ = s.parse::<i64>();
                         if let Ok(_) = try_ {
-                            GetInstanceResult::Ok(Value::Boolean(true))
+                            GetPropertyResult::Ok(Value::Boolean(true))
                         } else {
-                            GetInstanceResult::Ok(Value::Boolean(false))
+                            GetPropertyResult::Ok(Value::Boolean(false))
                         }
                     }
-                    _ => GetInstanceResult::NoSuchInstance,
+                    _ => GetPropertyResult::NoSuchProperty,
                 },
 
                 Value::Boolean(s) => match name {
-                    "i" => GetInstanceResult::Ok(Value::Int(*s as i64)),
-                    _ => GetInstanceResult::NoSuchInstance,
+                    "i" => GetPropertyResult::Ok(Value::Int(*s as i64)),
+                    _ => GetPropertyResult::NoSuchProperty,
                 },
 
                 Value::Int(i) => match name {
-                    "zero?" => GetInstanceResult::Ok(Value::Boolean(i.is_zero())),
-                    "one?" => GetInstanceResult::Ok(Value::Boolean(i.is_one())),
-                    "pos?" => GetInstanceResult::Ok(Value::Boolean(i.is_positive())),
-                    "neg?" => GetInstanceResult::Ok(Value::Boolean(i.is_negative())),
-                    "even?" => GetInstanceResult::Ok(Value::Boolean(i.is_even())),
-                    "odd?" => GetInstanceResult::Ok(Value::Boolean(i.is_odd())),
-                    "abs" => GetInstanceResult::Ok(Value::Int(i.abs())),
-                    _ => GetInstanceResult::NoSuchInstance,
+                    "zero?" => GetPropertyResult::Ok(Value::Boolean(i.is_zero())),
+                    "one?" => GetPropertyResult::Ok(Value::Boolean(i.is_one())),
+                    "pos?" => GetPropertyResult::Ok(Value::Boolean(i.is_positive())),
+                    "neg?" => GetPropertyResult::Ok(Value::Boolean(i.is_negative())),
+                    "even?" => GetPropertyResult::Ok(Value::Boolean(i.is_even())),
+                    "odd?" => GetPropertyResult::Ok(Value::Boolean(i.is_odd())),
+                    "abs" => GetPropertyResult::Ok(Value::Int(i.abs())),
+                    _ => GetPropertyResult::NoSuchProperty,
                 }
 
-                _ => GetInstanceResult::NoSuchInstance,
+                _ => GetPropertyResult::NoSuchProperty,
             },
         }
     }
 
-    pub fn call(&self, arguments: Vec<Value>) -> CallResult {
+    pub fn call(&self, arguments: Vec<Value>, heap: &Heap) -> CallResult {
         match self {
-            Value::NativeFunction(x) => x.0(self, arguments),
+            Value::NativeFunction(x) => x.0(self, arguments, heap),
             _ => CallResult::NotCallable,
         }
     }
