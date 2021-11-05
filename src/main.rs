@@ -65,12 +65,12 @@ fn cli() {
                 if let Some(x) = &vm.error {
                     error!("Runtime Error:\n{}", x.to_string(&heap));
                 } else if let Some(l) = &vm.last_popped {
-                    if l.value_type() != ValueType::Null {
-                        println!("{}", l.to_debug_string(&heap));
-                    }
                     heap = vm.heap;
                     vars = vm.variables;
                     insts.extend(inst);
+                    if l.value_type() != ValueType::Null {
+                        println!("{}", l.to_debug_string(&heap));
+                    }
                 } else {
                     heap = vm.heap;
                     vars = vm.variables;

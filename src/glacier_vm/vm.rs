@@ -161,9 +161,15 @@ impl Default for VM {
 
 impl VM {
     #[inline]
-    /// pushes an object to the heap, do not use free spots, updating [self.last_push_location]
-    pub fn push(&mut self, value: Value) {
-        self.stack.push(value);
+    /// pushes an object to the stack
+    pub fn push_stack(&mut self, value: Value) {
+        if value.value_type().is_mutable() {
+            self.push_free(value);
+            self.stack
+                .push(Value::Reference(self.last_push_location.unwrap()));
+        } else {
+            self.stack.push(value);
+        }
     }
 
     #[inline]
@@ -207,9 +213,7 @@ impl VM {
     pub fn new_frame(&mut self, index: usize) {
         self.variables.new_frame();
         self.frees.new_frame();
-        self.frames.push(FrameItem {
-            position: index,
-        });
+        self.frames.push(FrameItem { position: index });
     }
 
     #[inline]
@@ -238,7 +242,7 @@ impl VM {
 
             match i {
                 Instruction::Push(x) => {
-                    self.push(x.clone());
+                    self.push_stack(x.clone());
                 }
 
                 Instruction::Pop => {
@@ -248,15 +252,15 @@ impl VM {
                     self.stack.value[*to] = self.stack.value.get(*from).unwrap().clone()
                 }
                 Instruction::MovePush(from) => {
-                    self.push(self.stack.value.get(*from).unwrap().clone());
+                    self.push_stack(self.stack.value.get(*from).unwrap().clone());
                 }
                 Instruction::MoveLastFromHeapToStack => {
-                    self.push(self.heap.value.last().expect("Empty heap").clone());
+                    self.push_stack(self.heap.value.last().expect("Empty heap").clone());
                 }
 
                 Instruction::MoveVar(name) => {
                     if let Some(m) = self.get_variable(name.to_string()).cloned() {
-                        self.push(m);
+                        self.push_stack(m);
                     } else {
                         self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
                         return;
@@ -264,7 +268,7 @@ impl VM {
                 }
 
                 Instruction::MoveFree(name) => {
-                    self.push(
+                    self.push_stack(
                         self.heap
                             .value
                             .get(self.frees.get(name).unwrap())
@@ -285,12 +289,12 @@ impl VM {
                             .get_unchecked(self.variables.variables[*a][*b].unwrap())
                             .clone()
                     };
-                    self.push(k);
+                    self.push_stack(k);
                 }
 
                 Instruction::MoveLocal(name) => {
                     if let Some(m) = self.get_variable_int(*name).cloned() {
-                        self.push(m);
+                        self.push_stack(m);
                     } else {
                         self.error = Some(ErrorType::UndefinedVariable(name.to_string()));
                         return;
@@ -313,7 +317,7 @@ impl VM {
                     let b = self.stack.pop();
                     let res = b.apply_operator(x, &a);
                     if let ApplyOperatorResult::Ok(y) = res {
-                        self.push(y);
+                        self.push_stack(y);
                     } else if let ApplyOperatorResult::Error(e) = res {
                         self.error = Some(e);
                         return;
@@ -327,7 +331,7 @@ impl VM {
                     let a = self.stack.pop();
                     let res = a.apply_unary_operator(x);
                     if let ApplyOperatorResult::Ok(y) = res {
-                        self.push(y);
+                        self.push_stack(y);
                     } else if let ApplyOperatorResult::Error(e) = res {
                         self.error = Some(e);
                         return;
@@ -363,13 +367,15 @@ impl VM {
                     } else {
                         let mut arguments = vec![];
                         for _ in 0..*x {
-                            arguments.push(self.stack.pop());
+                            let e = self.stack.pop();
+                            self.push_free(e);
+                            arguments.push(self.last_push_location.unwrap());
                         }
 
-                        let res = callee.call(arguments, &self.heap);
+                        let res = callee.call(arguments, &mut self.heap);
                         match res {
                             CallResult::Ok(x) => {
-                                self.push(x);
+                                self.push_stack(x);
                             }
                             CallResult::NotCallable => {
                                 self.error = Some(ErrorType::NotCallable(callee.value_type()));
@@ -387,7 +393,7 @@ impl VM {
                     let p = self.stack.pop();
                     let r = p.get_property(x, &mut self.heap);
                     if let GetPropertyResult::Ok(k) = r {
-                        self.push(k);
+                        self.push_stack(k);
                     } else if let GetPropertyResult::Error(e) = r {
                         self.error = Some(e);
                         return;

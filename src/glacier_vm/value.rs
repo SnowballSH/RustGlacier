@@ -8,7 +8,7 @@ use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
 use crate::glacier_vm::vm::Heap;
 
 #[derive(Clone)]
-pub struct FT(pub fn(this: &Value, arguments: Vec<Value>, heap: &Heap) -> CallResult);
+pub struct FT(pub fn(this: &Value, arguments: Vec<usize>, heap: &mut Heap) -> CallResult);
 
 impl PartialEq for FT {
     fn eq(&self, other: &Self) -> bool {
@@ -57,6 +57,8 @@ pub enum Value {
     Vector(Vec<usize>),
 
     Null,
+
+    Reference(usize),
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -72,6 +74,8 @@ pub enum ValueType {
     Vector,
 
     Null,
+
+    Reference,
 }
 
 impl ValueType {
@@ -104,6 +108,16 @@ impl ValueType {
             ValueType::Vector => {
                 format!("Vector")
             }
+            ValueType::Reference => {
+                format!("Reference")
+            }
+        }
+    }
+
+    pub fn is_mutable(&self) -> bool {
+        match self {
+            ValueType::Vector => true,
+            _ => false,
         }
     }
 }
@@ -153,10 +167,19 @@ impl Value {
             Value::String(x) => x.clone(),
             Value::Boolean(x) => x.to_string(),
             Value::Vector(x) => {
-                format!("Vector [{}]", x.iter().map(|x| heap.value[*x].to_string(heap)).collect::<Vec<String>>().join(", "))
+                format!(
+                    "Vec [{}]",
+                    x.iter()
+                        .map(|x| heap.value[*x].to_string(heap))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             }
             Value::Null => {
                 format!("Null")
+            }
+            Value::Reference(x) => {
+                format!("&{}", heap.value[*x].to_string(heap))
             }
         }
     }
@@ -182,6 +205,9 @@ impl Value {
             Value::Null => {
                 format!("Null")
             }
+            Value::Reference(x) => {
+                format!("Reference to {}", x)
+            }
         }
     }
 
@@ -189,6 +215,9 @@ impl Value {
         match self {
             Value::String(x) => {
                 format!("\"{}\"", x)
+            }
+            Value::Reference(x) => {
+                format!("&{}", heap.value[*x].to_debug_string(heap))
             }
             _ => self.to_string(heap),
         }
@@ -224,6 +253,7 @@ impl Value {
             Value::Boolean(_) => ValueType::Boolean,
             Value::Vector(_) => ValueType::Vector,
             Value::Null => ValueType::Null,
+            Value::Reference(_) => ValueType::Reference,
         }
     }
 
@@ -292,14 +322,14 @@ impl Value {
                     "odd?" => GetPropertyResult::Ok(Value::Boolean(i.is_odd())),
                     "abs" => GetPropertyResult::Ok(Value::Int(i.abs())),
                     _ => GetPropertyResult::NoSuchProperty,
-                }
+                },
 
                 _ => GetPropertyResult::NoSuchProperty,
             },
         }
     }
 
-    pub fn call(&self, arguments: Vec<Value>, heap: &Heap) -> CallResult {
+    pub fn call(&self, arguments: Vec<usize>, heap: &mut Heap) -> CallResult {
         match self {
             Value::NativeFunction(x) => x.0(self, arguments, heap),
             _ => CallResult::NotCallable,
