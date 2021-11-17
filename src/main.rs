@@ -10,7 +10,7 @@ use glacier_lang::backends::js::codegen::JSCodeGen;
 use glacier_lang::backends::CodeGen;
 use glacier_lang::glacier_compiler::{Compiler, CompilerVariableMap};
 use glacier_lang::glacier_parser::parse;
-use glacier_lang::glacier_vm::value::ValueType;
+use glacier_lang::glacier_vm::value::{Value, ValueType};
 use glacier_lang::glacier_vm::vm::{Heap, VariableMap, VM};
 
 fn get_input() -> String {
@@ -37,6 +37,7 @@ fn cli() {
         compvars.new_frame();
         vars.new_frame();
 
+        println!("Size of Value = {}", std::mem::size_of::<Value>());
         println!("Welcome to Glacier repl. Type :quit to quit.",);
 
         loop {

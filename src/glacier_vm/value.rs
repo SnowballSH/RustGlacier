@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 
-use num::{BigInt, Integer, One, Zero};
+use num::{Integer, One, Zero};
 
 use crate::glacier_vm::error::{ErrorType, GlacierError};
 use crate::glacier_vm::operators::{apply_operator, apply_unary_operator};
@@ -46,11 +46,10 @@ impl Debug for NModule {
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Value {
-    BigInt(BigInt),
     Int(i64),
     NativeFunction(FT),
     NativeModule(NModule),
-    GlacierFunction(usize, String, Vec<usize>),
+    GlacierFunction(usize, Vec<usize>),
     String(String),
     Boolean(bool),
 
@@ -63,7 +62,6 @@ pub enum Value {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ValueType {
-    BigInt,
     Int,
     NativeFunction,
     NativeModule,
@@ -81,9 +79,6 @@ pub enum ValueType {
 impl ValueType {
     pub fn to_string(&self) -> String {
         match self {
-            ValueType::BigInt => {
-                format!("BigInt")
-            }
             ValueType::Int => {
                 format!("Integer")
             }
@@ -153,7 +148,6 @@ pub enum CallResult {
 impl Value {
     pub fn to_string(&self, heap: &Heap) -> String {
         match self {
-            Value::BigInt(x) => x.to_string(),
             Value::Int(x) => x.to_string(),
             Value::NativeFunction(x) => {
                 format!("{:?}", x)
@@ -161,8 +155,8 @@ impl Value {
             Value::NativeModule(x) => {
                 format!("{:?}", x)
             }
-            Value::GlacierFunction(_, y, _) => {
-                format!("Glacier Function {} {:p}", y, self)
+            Value::GlacierFunction(_, _) => {
+                format!("Glacier Function {:p}", self)
             }
             Value::String(x) => x.clone(),
             Value::Boolean(x) => x.to_string(),
@@ -186,7 +180,6 @@ impl Value {
 
     pub fn to_simple_string(&self) -> String {
         match self {
-            Value::BigInt(x) => x.to_string(),
             Value::Int(x) => x.to_string(),
             Value::NativeFunction(x) => {
                 format!("{:?}", x)
@@ -194,8 +187,8 @@ impl Value {
             Value::NativeModule(x) => {
                 format!("{:?}", x)
             }
-            Value::GlacierFunction(_, y, _) => {
-                format!("Glacier Function {} {:p}", y, self)
+            Value::GlacierFunction(_, _) => {
+                format!("Glacier Function {:p}", self)
             }
             Value::String(x) => x.clone(),
             Value::Boolean(x) => x.to_string(),
@@ -244,7 +237,6 @@ impl Value {
     /// Get the type of object
     pub fn value_type(&self) -> ValueType {
         match self {
-            Value::BigInt(_) => ValueType::BigInt,
             Value::Int(_) => ValueType::Int,
             Value::NativeFunction(_) => ValueType::NativeFunction,
             Value::NativeModule(_) => ValueType::NativeModule,
@@ -264,7 +256,6 @@ impl Value {
         }
         match self {
             Value::Int(x) => match into {
-                ValueType::BigInt => ConvertResult::Ok(Value::BigInt(BigInt::from(*x))),
                 ValueType::Boolean => ConvertResult::Ok(Value::Boolean(*x != 0)),
                 _ => ConvertResult::NotOk,
             },
@@ -339,8 +330,6 @@ impl Value {
 
 #[cfg(test)]
 mod tests {
-    use num::BigInt;
-
     use crate::glacier_vm::value::{ApplyOperatorResult, ConvertResult, Value, ValueType};
 
     #[test]
@@ -348,10 +337,6 @@ mod tests {
         let a = Value::Int(6);
         let b = Value::Int(8);
         assert_eq!(a.try_convert(ValueType::Int), ConvertResult::SameType);
-        assert_eq!(
-            b.try_convert(ValueType::BigInt),
-            ConvertResult::Ok(Value::BigInt(BigInt::from(8)))
-        );
         assert_eq!(
             a.apply_operator("+", &b),
             ApplyOperatorResult::Ok(Value::Int(14))

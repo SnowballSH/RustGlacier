@@ -343,11 +343,11 @@ impl VM {
 
                 Instruction::Call(x) => {
                     let callee = self.stack.pop();
-                    if let Value::GlacierFunction(idx, name, params) = callee {
+                    if let Value::GlacierFunction(idx, params) = callee {
                         if *x != params.len() {
                             self.error = Some(GlacierError::ArgumentError(format!(
-                                "When Calling Function {}: Expected {} arguments, got {}",
-                                name,
+                                "When Calling Function {:x}: Expected {} arguments, got {}",
+                                idx,
                                 params.len(),
                                 *x
                             )));
@@ -406,7 +406,6 @@ impl VM {
                 Instruction::MakeCode(x, y, z, l) => {
                     self.push_free(Value::GlacierFunction(
                         *x + padding as usize,
-                        y.clone(),
                         z.clone(),
                     ));
                     self.define_variable(*l);
