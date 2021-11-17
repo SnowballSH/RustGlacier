@@ -47,8 +47,8 @@ end
 |----------------|-----------------|-------------|------------|
 | 21th - Time    | **0.04s**       | 2.98s       | 0.13s      |
 | 26th - Time    | **0.14s**       | DNF         | 0.15s      |
-| 30th - Time    | **0.90s**       | DNF         | 0.27s      |
-| 33th - Time    | **4.36s**       | DNF         | 0.58s      |
+| 30th - Time    | **0.88s**       | DNF         | 0.27s      |
+| 33th - Time    | **3.89s**       | DNF         | 0.58s      |
 
 Compared to its brother Gorilla, Glacier is a LOT faster.
 
