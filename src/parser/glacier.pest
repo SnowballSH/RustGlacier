@@ -1,0 +1,87 @@
+program = _{ SOI ~ TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~ EOI }
+
+TERMINATOR = _{ NEWLINE | ";" }
+WHITESPACE = _{ " " | "\t" }
+COMMENT = _{ ("#" ~ (!NEWLINE ~ ANY)*) }
+
+integer = @{ ASCII_DIGIT{1, 18} }
+idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+identifier = @{ !(keyword ~ (WHITESPACE | EOI | TERMINATOR)) ~ idt }
+keyword = @{
+    "if" | "else" | "end" | "debug"
+}
+
+block = {
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~  "end") | (":" ~ NEWLINE* ~ stmt)
+}
+
+no_else_block = {
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ !"else" ~ stmt?) | ":"? ~ stmt
+}
+
+condition_if = {
+    "if" ~ NEWLINE* ~ expression ~ NEWLINE* ~ block
+}
+
+condition_ifelse = {
+    "if" ~ NEWLINE* ~ expression ~ NEWLINE* ~ no_else_block ~ NEWLINE* ~ "else" ~ NEWLINE* ~ block
+}
+
+//while_loop = {
+//    "while" ~ NEWLINE* ~ expression ~ NEWLINE* ~ block
+//}
+
+indexing = {
+    "[" ~ NEWLINE* ~ expression ~ NEWLINE* ~ "]"
+}
+
+suffix = {
+    term ~ (indexing)+
+}
+
+term = _{ integer | identifier | "(" ~ expression ~ ")" }
+
+prefix = { prefix_operators+ ~ expression_inner }
+
+// condition_ifelse must be before condition_if
+expression_inner = _{ condition_ifelse | condition_if | assign | suffix | prefix | term }
+
+add = { "+" }
+sub = { "-" }
+mul = { "*" }
+div = { "/" }
+modulo = { "%" }
+dbeq = { "==" }
+neq = { "!=" }
+gt = { ">" }
+lt = { "<" }
+gteq = { ">=" }
+lteq = { "<=" }
+bang = { "!" }
+log_and = { "&&" }
+log_or = { "||" }
+
+operators = _{
+    add | sub | mul | div | modulo
+    | dbeq | neq | gteq | lteq | gt | lt
+    | log_and | log_or
+}
+
+prefix_operators = _{
+    add | sub | bang
+}
+
+infix = _{ expression_inner ~ (operators ~ expression_inner)+ }
+
+assign = { identifier ~ "=" ~ expression }
+
+debug_print = { "debug" ~ expression }
+
+expression = { infix | expression_inner }
+
+expression_stmt = { expression }
+
+stmt = _{
+    debug_print
+    | expression_stmt
+}
