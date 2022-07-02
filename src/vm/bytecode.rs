@@ -75,7 +75,7 @@ bytecodes! {
     // Stack: [a, b] -> [a == b]
     // a == b
     BINARY_EQ;
-    // BINARY_NEQ
+    // BINARY_NE
     // Stack: [a, b] -> [a != b]
     // a != b
     BINARY_NE;
