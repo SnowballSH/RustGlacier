@@ -3,7 +3,7 @@ pub mod ast;
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::*;
-use pest::{Parser};
+use pest::Parser;
 use pest_derive::*;
 
 use Rule::*;
@@ -47,6 +47,16 @@ fn others(pair: Pair<Rule>) -> Expression {
             value: pair.as_str().parse().unwrap(),
             pos: pair.as_span(),
         }),
+
+        Rule::false_expr => Expression::Bool(Bool {
+            value: false,
+            pos: pair.as_span(),
+        }),
+        Rule::true_expr => Expression::Bool(Bool {
+            value: true,
+            pos: pair.as_span(),
+        }),
+
         Rule::identifier => Expression::GetVar(GetVar {
             name: pair.as_str(),
             pos: pair.as_span(),
@@ -181,10 +191,9 @@ fn parse_program(res: Pairs<Rule>) -> Program {
     let mut ast = vec![];
     for pair in res {
         match pair.as_rule() {
-            Rule::stmt
-            | Rule::expression_stmt
-            | Rule::debug_print
-            => ast.push(parse_statement(pair)),
+            Rule::stmt | Rule::expression_stmt | Rule::debug_print => {
+                ast.push(parse_statement(pair))
+            }
             _ => {}
         }
     }
