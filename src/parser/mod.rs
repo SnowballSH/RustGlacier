@@ -30,7 +30,7 @@ lazy_static! {
 
 #[derive(Parser)]
 #[grammar = "parser/glacier.pest"]
-pub struct GorillaParser;
+pub struct GlacierParser;
 
 fn infix<'a>(lhs: Expression<'a>, op: Pair<'a, Rule>, rhs: Expression<'a>) -> Expression<'a> {
     Expression::Infix(Box::new(Infix {
@@ -201,7 +201,7 @@ fn parse_program(res: Pairs<Rule>) -> Program {
 }
 
 pub fn parse(code: &str) -> Result<Program, pest::error::Error<Rule>> {
-    let res = GorillaParser::parse(Rule::program, code);
+    let res = GlacierParser::parse(Rule::program, code);
     match res {
         Ok(res) => {
             let ast = parse_program(res);

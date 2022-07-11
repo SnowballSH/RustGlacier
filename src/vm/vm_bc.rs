@@ -26,6 +26,11 @@ pub struct VM {
     pub constant_hash_small_int: [Option<Byte>; CONSTANT_SMALL_INT_SIZE],
 
     pub stack: ArrayVec<Value, STACK_SIZE>,
+
+    pub last_popped: Option<Value>,
+    pub repl_mode: bool,
+
+    pub error: Option<String>,
 }
 
 impl Default for VM {
@@ -41,6 +46,11 @@ impl Default for VM {
             constant_hash_small_int: [None; CONSTANT_SMALL_INT_SIZE],
 
             stack: ArrayVec::new(),
+
+            last_popped: None,
+            repl_mode: false,
+
+            error: None,
         };
 
         v.constants.push(Value::Bool(false));
@@ -61,6 +71,9 @@ impl VM {
     }
 
     fn get_nl_pos(&self, line: usize) -> usize {
+        if line == 0 {
+            return 0;
+        }
         let mut count = 0;
         for (i, ch) in self.source.chars().enumerate() {
             if ch == '\n' {
@@ -73,35 +86,38 @@ impl VM {
         unreachable!();
     }
 
-    pub fn compile_error(&self, span: &Span, message: String) -> ! {
+    pub fn compile_error(&mut self, span: &Span, message: String) {
         let line = self.span_to_line(span);
         let line_str = &self.source.split('\n').nth(line).unwrap();
         let start = self.get_nl_pos(line);
 
-        eprintln!(
-            "At Line {}:\n{}\n{}{}",
-            line + 1,
-            line_str,
-            " ".repeat(span.start() - start),
-            "^".repeat(span.end() - span.start())
+        self.error = Some(
+            format!(
+                "At Line {}:\n{}\n{}{}\nCompile-time Error:\n    {}",
+                line + 1,
+                line_str,
+                " ".repeat(span.start() - start),
+                "^".repeat(span.end() - span.start()),
+                message
+            )
         );
-        eprintln!("Compile-time Error:\n    {}", message);
-        std::process::exit(1)
     }
 
-    pub fn runtime_error(&self, message: String) -> ! {
+    pub fn runtime_error(&mut self, message: String) {
         let line = self.lines[self.pc].0;
         let line_str = &self.source.split('\n').nth(line).unwrap();
         let start = self.get_nl_pos(line);
-        eprintln!(
-            "At Line {}:\n{}\n{}{}",
-            line + 1,
-            line_str,
-            " ".repeat(self.lines[self.pc].1 - start),
-            "^".repeat(self.lines[self.pc].2 - self.lines[self.pc].1)
+        self.error = Some(
+            format!(
+                "At Line {}:\n{}\n{}{}\nRuntime Error:\n    {}",
+                line + 1,
+                line_str,
+                " ".repeat(self.lines[self.pc].1 - start),
+                "^".repeat(self.lines[self.pc].2 - self.lines[self.pc].1),
+                message
+            )
         );
-        eprintln!("Runtime Error:\n    {}", message);
-        std::process::exit(1)
+        self.stack.clear();
     }
 }
 
@@ -115,25 +131,32 @@ impl VM {
     }
 
     pub fn compile(&mut self, program: &Program) {
+        self.lines.clear();
+        self.bytecodes.clear();
         for stmt in program {
             self.compile_statement(stmt);
         }
     }
 
-    pub fn compile_statement(&mut self, statement: &Statement) {
+    pub fn compile_statement(&mut self, statement: &Statement) -> bool {
         match statement {
             Statement::ExprStmt(e) => {
-                self.compile_expression(&e.expr);
+                if !self.compile_expression(&e.expr) {
+                    return false;
+                };
                 self.push_bytecode(POP_LAST, &e.pos);
             }
             Statement::DebugPrint(e) => {
-                self.compile_expression(&e.expr);
+                if !self.compile_expression(&e.expr) {
+                    return false;
+                };
                 self.push_bytecode(DEBUG_PRINT, &e.pos);
             }
         }
+        true
     }
 
-    pub fn compile_expression(&mut self, expression: &Expression) {
+    pub fn compile_expression(&mut self, expression: &Expression) -> bool {
         match expression {
             Expression::Int(num) => {
                 let index;
@@ -150,6 +173,7 @@ impl VM {
                         &num.pos,
                         format!("Constant exceeds limit of {}", CONSTANT_SIZE),
                     );
+                    return false;
                 } else {
                     index = self.constants.len() as Byte - 1;
                     if num.value < CONSTANT_SMALL_INT_SIZE as u64 {
@@ -206,6 +230,7 @@ impl VM {
                             &infix.pos,
                             format!("Unsupported Operand: {}", infix.operator),
                         );
+                        return false;
                     }
                 }
             }
@@ -223,6 +248,7 @@ impl VM {
                         &prefix.pos,
                         format!("Unsupported Operand: {}", prefix.operator),
                     );
+                    return false;
                 }
             },
             Expression::Index(_) => {
@@ -232,6 +258,8 @@ impl VM {
                 unimplemented!()
             }
         }
+
+        true
     }
 
     pub fn disassemble(&self) -> String {
@@ -276,13 +304,18 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
+        self.stack.clear();
+        self.last_popped = None;
         self.pc = 0;
         while self.pc < self.bytecodes.len() {
             let bc = self.read_bytecode();
             match bc {
                 // General
                 POP_LAST => {
-                    self.stack.pop();
+                    let v = self.stack.pop();
+                    if self.repl_mode {
+                        self.last_popped = v;
+                    }
                 }
 
                 LOAD_CONST => {
@@ -293,6 +326,7 @@ impl VM {
                         .is_err()
                     {
                         self.runtime_error("Stack overflow".to_string());
+                        return;
                     }
                 }
 
@@ -310,6 +344,7 @@ impl VM {
                                 "Unsupported Unary operation: -bool (Hint: Use !bool instead)"
                                     .to_string(),
                             );
+                            return;
                         }
                         Value::Int(i) => {
                             unsafe {
@@ -322,6 +357,7 @@ impl VM {
                                 "Unsupported Unary operation: -{}",
                                 value.type_name()
                             ));
+                            return;
                         }
                     }
                 }
@@ -347,6 +383,7 @@ impl VM {
                                 left.type_name(),
                                 right.type_name()
                             ));
+                            return;
                         }
                     }
                 }
@@ -364,6 +401,7 @@ impl VM {
                                 left.type_name(),
                                 right.type_name()
                             ));
+                            return;
                         }
                     }
                 }
@@ -381,6 +419,7 @@ impl VM {
                                 left.type_name(),
                                 right.type_name()
                             ));
+                            return;
                         }
                     }
                 }
@@ -395,6 +434,7 @@ impl VM {
                                     "Division by zero: {} / 0",
                                     left.debug_format()
                                 ));
+                                return;
                             }
                             unsafe {
                                 self.stack.push_unchecked(Value::Int(l.wrapping_div(*r)));
@@ -406,6 +446,7 @@ impl VM {
                                 left.type_name(),
                                 right.type_name()
                             ));
+                            return;
                         }
                     }
                 }
@@ -420,6 +461,7 @@ impl VM {
                                     "Modulo by zero: {} % 0",
                                     left.debug_format()
                                 ));
+                                return;
                             }
                             unsafe {
                                 self.stack.push_unchecked(Value::Int(l.wrapping_rem(*r)));
@@ -431,6 +473,7 @@ impl VM {
                                 left.type_name(),
                                 right.type_name()
                             ));
+                            return;
                         }
                     }
                 }
@@ -454,6 +497,7 @@ impl VM {
                 // Invalid
                 _ => {
                     self.runtime_error(format!("Unknown bytecode: {}", bc));
+                    return;
                 }
             }
         }
