@@ -10,7 +10,6 @@ use vm::*;
 
 use crate::vm_bc::VM;
 use clap::Parser;
-use crate::value::Value;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]
@@ -43,7 +42,6 @@ fn main() {
                 vm.execute();
                 if let Some(e) = &vm.error {
                     println!("{}", e);
-                    return;
                 }
             } else if let Err(e) = ast_ {
                 if let pest::error::LineColLocation::Span(start, end) = e.line_col {
