@@ -10,6 +10,7 @@ use vm::*;
 
 use crate::vm_bc::VM;
 use clap::Parser;
+use crate::value::Value;
 
 /// Simple program to greet a person
 #[derive(Parser, Debug)]

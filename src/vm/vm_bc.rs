@@ -209,6 +209,24 @@ impl VM {
 
     pub fn compile_expression(&mut self, expression: &Expression) -> bool {
         match expression {
+            Expression::String_(s) => {
+                let leaked_str: &'static str = Box::leak(s.value.to_string().into_boxed_str());
+                if self
+                    .constants
+                    .try_push(Value::String(leaked_str))
+                    .is_err()
+                {
+                    self.compile_error(
+                        &s.pos,
+                        format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                    );
+                    return false;
+                }
+
+                self.push_bytecode(LOAD_CONST, &s.pos);
+                self.push_bytecode(self.constants.len() as Byte - 1, &s.pos);
+            }
+
             Expression::Int(num) => {
                 let index;
                 if num.value < CONSTANT_SMALL_INT_SIZE as u64

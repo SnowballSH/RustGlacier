@@ -43,6 +43,11 @@ fn infix<'a>(lhs: Expression<'a>, op: Pair<'a, Rule>, rhs: Expression<'a>) -> Ex
 
 fn others(pair: Pair<Rule>) -> Expression {
     match pair.as_rule() {
+        Rule::string_literal => Expression::String_(String_ {
+            value: &pair.as_str()[1..pair.as_str().len() - 1],
+            pos: pair.as_span(),
+        }),
+
         Rule::integer => Expression::Int(Integer {
             value: pair.as_str().parse().unwrap(),
             pos: pair.as_span(),

@@ -2,6 +2,7 @@ use pest::Span;
 
 #[derive(Debug, Clone)]
 pub enum Expression<'a> {
+    String_(String_<'a>),
     Int(Integer<'a>),
     Bool(Bool<'a>),
     GetVar(GetVar<'a>),
@@ -40,6 +41,12 @@ pub struct Infix<'a> {
 pub struct Prefix<'a> {
     pub operator: &'a str,
     pub right: Expression<'a>,
+    pub pos: Span<'a>,
+}
+
+#[derive(Debug, Clone)]
+pub struct String_<'a> {
+    pub value: &'a str,
     pub pos: Span<'a>,
 }
 
