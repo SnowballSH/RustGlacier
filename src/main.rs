@@ -15,7 +15,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
-    #[clap(short, long, value_parser)]
+    #[clap(value_parser)]
     file: Option<String>,
 }
 
