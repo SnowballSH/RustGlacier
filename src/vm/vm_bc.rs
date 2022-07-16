@@ -1,7 +1,10 @@
 use super::bytecode::*;
 use crate::ast::*;
 use crate::value::*;
+use std::alloc::{alloc, Layout};
 use std::collections::HashMap;
+use std::fmt::Write;
+use std::slice::from_raw_parts_mut;
 
 use arrayvec::ArrayVec;
 use pest::Span;
@@ -210,17 +213,24 @@ impl VM {
     pub fn compile_expression(&mut self, expression: &Expression) -> bool {
         match expression {
             Expression::String_(s) => {
-                let leaked_str: &'static str = Box::leak(s.value.to_string().into_boxed_str());
-                if self
-                    .constants
-                    .try_push(Value::String(leaked_str))
-                    .is_err()
-                {
-                    self.compile_error(
-                        &s.pos,
-                        format!("Constant exceeds limit of {}", CONSTANT_SIZE),
-                    );
-                    return false;
+                unsafe {
+                    let ptr = alloc(Layout::for_value(s.value));
+                    let length = s.value.len();
+                    let mutable_val = from_raw_parts_mut(ptr, length);
+                    for (i, ch) in s.value.bytes().enumerate() {
+                        mutable_val[i] = ch;
+                    }
+                    if self
+                        .constants
+                        .try_push(Value::String((ptr, length)))
+                        .is_err()
+                    {
+                        self.compile_error(
+                            &s.pos,
+                            format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                        );
+                        return false;
+                    }
                 }
 
                 self.push_bytecode(LOAD_CONST, &s.pos);
@@ -381,12 +391,13 @@ impl VM {
                 _ => (),
             }
 
-            s.push_str(&format!(
+            s.write_fmt(format_args!(
                 "{:04x}: {} {}\n",
                 old_pc,
                 bytecode_name(byte),
                 args.join(", ")
-            ));
+            ))
+            .unwrap();
 
             pc += 1;
         }
