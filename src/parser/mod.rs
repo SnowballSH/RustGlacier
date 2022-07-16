@@ -98,6 +98,15 @@ fn others(pair: Pair<Rule>) -> Expression {
             }))
         }
 
+        Rule::do_block => {
+            let mut inner = pair.clone().into_inner();
+            let res = inner.next().unwrap();
+            Expression::Do(Box::new(Do {
+                body: parse_program(res.into_inner()),
+                pos: pair.as_span(),
+            }))
+        }
+
         Rule::prefix => {
             let mut inner: Vec<Pair<Rule>> = pair.clone().into_inner().collect();
             let last = inner.pop().unwrap();

@@ -31,10 +31,20 @@ bytecodes! {
     // Pops a
     POP_LAST;
 
+    // REPLACE address
+    // Stack: [addr, ..., a] -> [a, ...]
+    // Pops a and puts it at address
+    REPLACE;
+
     // LOAD_CONST address
     // Stack: [] -> [value]
-    // Loads address onto stack
+    // Loads const[address] onto stack
     LOAD_CONST;
+
+    // LOAD_LOCAL address
+    // Stack: stack[address]=value -> [value]
+    // Loads stack[address] onto stack
+    LOAD_LOCAL;
 
     // DEBUG_PRINT
     // Stack: [a] -> []
@@ -84,7 +94,9 @@ bytecodes! {
 pub fn bytecode_name(bytecode: Byte) -> &'static str {
     match bytecode {
         POP_LAST => "POP_LAST",
+        REPLACE => "REPLACE",
         LOAD_CONST => "LOAD_CONST",
+        LOAD_LOCAL => "LOAD_LOCAL",
         DEBUG_PRINT => "DEBUG_PRINT",
         UNARY_NEG => "UNARY_NEG",
         UNARY_NOT => "UNARY_NOT",

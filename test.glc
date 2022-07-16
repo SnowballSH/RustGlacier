@@ -1,0 +1,19 @@
+a = 1234321
+debug a
+
+a = 2
+debug a
+
+do
+    a = 3
+    debug a
+
+    do
+        a = 4
+        debug a
+    end
+
+    debug a
+end
+
+debug a

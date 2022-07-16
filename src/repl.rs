@@ -1,5 +1,5 @@
-use crate::vm::*;
 use crate::parser::*;
+use crate::vm::*;
 
 use std::io;
 use std::io::Write;
@@ -40,7 +40,12 @@ impl Repl {
                     continue;
                 }
 
+                // println!("{}", self.vm.disassemble());
+                // println!("{:?}", self.vm.current_compiler);
+
                 self.vm.execute();
+
+                // println!("{:?}", self.vm.stack);
 
                 if let Some(e) = &self.vm.error {
                     println!("{}", e);
@@ -48,29 +53,31 @@ impl Repl {
                 }
 
                 if let Some(lp) = &self.vm.last_popped {
-                    println!("#>> {}", lp.debug_format());
+                    if let value::Value::Null = lp {
+                    } else {
+                        println!("#>> {}", lp.debug_format());
+                    }
                 }
             } else if let Err(e) = ast_ {
                 if let pest::error::LineColLocation::Span(start, end) = e.line_col {
-                    let line_str = input.split('\n').nth(start.0-1).unwrap();
+                    let line_str = input.split('\n').nth(start.0 - 1).unwrap();
                     println!(
                         "At Line {}:\n{}\n{}{}\nSyntax Error",
                         start.0,
                         line_str,
-                        " ".repeat(start.1-1),
+                        " ".repeat(start.1 - 1),
                         "^".repeat(end.1.min(line_str.len()) - start.1),
                     );
                 } else if let pest::error::LineColLocation::Pos(pos) = e.line_col {
-                    let line_str = input.split('\n').nth(pos.0-1).unwrap();
+                    let line_str = input.split('\n').nth(pos.0 - 1).unwrap();
                     println!(
                         "At Line {}:\n{}\n{}^\nSyntax Error",
                         pos.0,
                         line_str,
-                        " ".repeat(pos.1-1),
+                        " ".repeat(pos.1 - 1),
                     );
                 }
             }
-
         }
     }
 }

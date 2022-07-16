@@ -1,9 +1,10 @@
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Copy)]
 pub enum Value {
     Float(f64),
     Int(i64),
     Bool(bool),
+    Null,
 }
 
 impl Value {
@@ -12,6 +13,7 @@ impl Value {
             Value::Float(f) => format!("{}", f),
             Value::Int(i) => format!("{}", i),
             Value::Bool(b) => format!("{}", b),
+            Value::Null => "null".to_string(),
         }
     }
 
@@ -20,6 +22,7 @@ impl Value {
             Value::Float(_) => "float",
             Value::Int(_) => "int",
             Value::Bool(_) => "bool",
+            Value::Null => "null",
         }
     }
 
@@ -28,6 +31,7 @@ impl Value {
             Value::Float(f) => *f != 0.0,
             Value::Int(i) => *i != 0,
             Value::Bool(b) => *b,
+            Value::Null => false,
         }
     }
 }

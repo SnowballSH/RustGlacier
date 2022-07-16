@@ -1,6 +1,7 @@
 use super::bytecode::*;
 use crate::ast::*;
 use crate::value::*;
+use std::collections::HashMap;
 
 use arrayvec::ArrayVec;
 use pest::Span;
@@ -8,10 +9,20 @@ use pest::Span;
 pub const BYTECODE_CAP: usize = 1024;
 pub const CONSTANT_SIZE: usize = 1024;
 pub const CONSTANT_SMALL_INT_SIZE: usize = 512 + 8;
+pub const LOCAL_SIZE: usize = 1024;
+pub const SCOPE_SIZE: usize = 512;
 pub const STACK_SIZE: usize = 8192;
 
 pub const BOOL_FALSE_CONSTANT: usize = 0;
 pub const BOOL_TRUE_CONSTANT: usize = 1;
+pub const NULL_CONSTANT: usize = 2;
+
+#[derive(Debug, Clone, Default)]
+pub struct Compiler {
+    pub local_map: ArrayVec<HashMap<String, usize>, SCOPE_SIZE>,
+    pub scope_depth: usize,
+    pub count: usize,
+}
 
 #[derive(Debug, Clone)]
 pub struct VM {
@@ -24,6 +35,8 @@ pub struct VM {
 
     pub constants: ArrayVec<Value, CONSTANT_SIZE>,
     pub constant_hash_small_int: [Option<Byte>; CONSTANT_SMALL_INT_SIZE],
+
+    pub current_compiler: Compiler,
 
     pub stack: ArrayVec<Value, STACK_SIZE>,
 
@@ -45,6 +58,8 @@ impl Default for VM {
             constants: ArrayVec::new(),
             constant_hash_small_int: [None; CONSTANT_SMALL_INT_SIZE],
 
+            current_compiler: Default::default(),
+
             stack: ArrayVec::new(),
 
             last_popped: None,
@@ -55,6 +70,9 @@ impl Default for VM {
 
         v.constants.push(Value::Bool(false));
         v.constants.push(Value::Bool(true));
+        v.constants.push(Value::Null);
+
+        v.current_compiler.local_map.push(HashMap::new());
 
         v
     }
@@ -91,48 +109,81 @@ impl VM {
         let line_str = &self.source.split('\n').nth(line).unwrap();
         let start = self.get_nl_pos(line);
 
-        self.error = Some(
-            format!(
-                "At Line {}:\n{}\n{}{}\nCompile-time Error:\n    {}",
-                line + 1,
-                line_str,
-                " ".repeat(span.start() - start),
-                "^".repeat(span.end() - span.start()),
-                message
-            )
-        );
+        self.error = Some(format!(
+            "At Line {}:\n{}\n{}{}\nCompile-time Error:\n    {}",
+            line + 1,
+            line_str,
+            " ".repeat(span.start() - start),
+            "^".repeat(span.end() - span.start()),
+            message
+        ));
     }
 
     pub fn runtime_error(&mut self, message: String) {
         let line = self.lines[self.pc].0;
         let line_str = &self.source.split('\n').nth(line).unwrap();
         let start = self.get_nl_pos(line);
-        self.error = Some(
-            format!(
-                "At Line {}:\n{}\n{}{}\nRuntime Error:\n    {}",
-                line + 1,
-                line_str,
-                " ".repeat(self.lines[self.pc].1 - start),
-                "^".repeat(self.lines[self.pc].2 - self.lines[self.pc].1),
-                message
-            )
-        );
-        self.stack.clear();
+        self.error = Some(format!(
+            "At Line {}:\n{}\n{}{}\nRuntime Error:\n    {}",
+            line + 1,
+            line_str,
+            " ".repeat(self.lines[self.pc].1 - start),
+            "^".repeat(self.lines[self.pc].2 - self.lines[self.pc].1),
+            message
+        ));
     }
 }
 
 // Compilation
 impl VM {
-    #[inline(always)]
     fn push_bytecode(&mut self, bytecode: Byte, span: &Span) {
         self.bytecodes.push(bytecode);
         self.lines
             .push((self.span_to_line(span), span.start(), span.end()));
     }
 
+    pub fn begin_scope(&mut self) {
+        self.current_compiler.scope_depth += 1;
+        self.current_compiler.local_map.push(HashMap::new());
+    }
+
+    pub fn end_scope(&mut self) {
+        self.current_compiler.scope_depth -= 1;
+        self.current_compiler.count -= self.current_compiler.local_map.pop().unwrap().len();
+    }
+
+    pub fn add_local(&mut self, name: String) -> Option<usize> {
+        if let Some(i) =
+            self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
+        {
+            return Some(*i);
+        }
+        self.current_compiler.local_map[self.current_compiler.scope_depth]
+            .insert(name, self.current_compiler.count);
+        self.current_compiler.count += 1;
+        None
+    }
+
+    pub fn resolve_local(&mut self, name: String) -> Option<usize> {
+        for i in (0..=self.current_compiler.scope_depth).rev() {
+            if let Some(index) = self.current_compiler.local_map[i].get(&name) {
+                return Some(*index);
+            }
+        }
+        None
+    }
+
     pub fn compile(&mut self, program: &Program) {
         self.lines.clear();
         self.bytecodes.clear();
+        while self.current_compiler.local_map.len() > 1 {
+            self.current_compiler.local_map.pop();
+        }
+        self.current_compiler.count = self.current_compiler.local_map[0].len();
+        self.compile_program(program);
+    }
+
+    pub fn compile_program(&mut self, program: &Program) {
         for stmt in program {
             self.compile_statement(stmt);
         }
@@ -194,11 +245,26 @@ impl VM {
                 self.push_bytecode(index as Byte, &b.pos);
             }
 
-            Expression::GetVar(_) => {
-                unimplemented!()
+            Expression::GetVar(get) => {
+                let res = self.resolve_local(get.name.to_string());
+                if let Some(index) = res {
+                    self.push_bytecode(LOAD_LOCAL, &get.pos);
+                    self.push_bytecode(index as Byte, &get.pos);
+                } else {
+                    self.compile_error(&get.pos, format!("Variable '{}' is not defined", get.name));
+                    return false;
+                }
             }
-            Expression::SetVar(_) => {
-                unimplemented!()
+
+            Expression::SetVar(var) => {
+                let replace = self.add_local(var.name.to_string());
+                self.compile_expression(&var.value);
+                if let Some(i) = replace {
+                    self.push_bytecode(REPLACE, &var.pos);
+                    self.push_bytecode(i as Byte, &var.pos);
+                }
+                self.push_bytecode(LOAD_CONST, &var.pos);
+                self.push_bytecode(NULL_CONSTANT as Byte, &var.pos);
             }
             Expression::Infix(infix) => {
                 self.compile_expression(&infix.left);
@@ -257,6 +323,14 @@ impl VM {
             Expression::If(_) => {
                 unimplemented!()
             }
+
+            Expression::Do(d) => {
+                self.begin_scope();
+                self.compile_program(&d.body);
+                self.end_scope();
+                self.push_bytecode(LOAD_CONST, &d.pos);
+                self.push_bytecode(NULL_CONSTANT as Byte, &d.pos);
+            }
         }
 
         true
@@ -279,6 +353,13 @@ impl VM {
                         self.constants[address].debug_format()
                     ));
                 }
+
+                LOAD_LOCAL => {
+                    pc += 1;
+                    let address = self.bytecodes[pc] as usize;
+                    args.push(format!("{:02x}", address,));
+                }
+
                 _ => (),
             }
 
@@ -304,7 +385,9 @@ impl VM {
     }
 
     pub fn execute(&mut self) {
-        self.stack.clear();
+        while self.stack.len() > self.current_compiler.count {
+            self.stack.pop();
+        }
         self.last_popped = None;
         self.pc = 0;
         while self.pc < self.bytecodes.len() {
@@ -318,16 +401,23 @@ impl VM {
                     }
                 }
 
+                REPLACE => {
+                    let index = self.read_bytecode();
+                    let v = self.stack.pop().unwrap();
+                    self.stack[index as usize] = v;
+                }
+
                 LOAD_CONST => {
                     let index = self.read_bytecode();
-                    if self
-                        .stack
-                        .try_push(self.constants[index as usize].clone())
-                        .is_err()
-                    {
+                    if self.stack.try_push(self.constants[index as usize]).is_err() {
                         self.runtime_error("Stack overflow".to_string());
                         return;
                     }
+                }
+
+                LOAD_LOCAL => {
+                    let index = self.read_bytecode();
+                    self.stack.push(*self.stack.get(index as usize).unwrap());
                 }
 
                 DEBUG_PRINT => {
