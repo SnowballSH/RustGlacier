@@ -1,12 +1,11 @@
 use super::bytecode::*;
 use crate::ast::*;
 use crate::value::*;
-use std::alloc::{alloc, Layout};
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::slice::from_raw_parts_mut;
 
 use arrayvec::ArrayVec;
+use gc::{Gc, GcCell};
 use pest::Span;
 
 pub const BYTECODE_CAP: usize = 1024;
@@ -213,24 +212,16 @@ impl VM {
     pub fn compile_expression(&mut self, expression: &Expression) -> bool {
         match expression {
             Expression::String_(s) => {
-                unsafe {
-                    let ptr = alloc(Layout::for_value(s.value));
-                    let length = s.value.len();
-                    let mutable_val = from_raw_parts_mut(ptr, length);
-                    for (i, ch) in s.value.bytes().enumerate() {
-                        mutable_val[i] = ch;
-                    }
-                    if self
-                        .constants
-                        .try_push(Value::String((ptr, length)))
-                        .is_err()
-                    {
-                        self.compile_error(
-                            &s.pos,
-                            format!("Constant exceeds limit of {}", CONSTANT_SIZE),
-                        );
-                        return false;
-                    }
+                if self
+                    .constants
+                    .try_push(Value::String(GcCell::new(s.value.to_string())))
+                    .is_err()
+                {
+                    self.compile_error(
+                        &s.pos,
+                        format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                    );
+                    return false;
                 }
 
                 self.push_bytecode(LOAD_CONST, &s.pos);
@@ -438,7 +429,11 @@ impl VM {
 
                 LOAD_CONST => {
                     let index = self.read_bytecode();
-                    if self.stack.try_push(self.constants[index as usize]).is_err() {
+                    if self
+                        .stack
+                        .try_push(self.constants[index as usize].clone())
+                        .is_err()
+                    {
                         self.runtime_error("Stack overflow".to_string());
                         return;
                     }
@@ -446,7 +441,8 @@ impl VM {
 
                 LOAD_LOCAL => {
                     let index = self.read_bytecode();
-                    self.stack.push(*self.stack.get(index as usize).unwrap());
+                    self.stack
+                        .push(self.stack.get(index as usize).unwrap().clone());
                 }
 
                 DEBUG_PRINT => {

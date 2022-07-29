@@ -1,12 +1,11 @@
-use std::alloc::{dealloc, Layout};
-use std::slice::from_raw_parts;
+use gc::{Gc, GcCell};
 
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Float(f64),
     Int(i64),
-    String((*mut u8, usize)),
+    String(GcCell<String>),
     Bool(bool),
     Null,
 }
@@ -16,9 +15,7 @@ impl Value {
         match self {
             Value::Float(f) => format!("{}", f),
             Value::Int(i) => format!("{}", i),
-            Value::String(s) => format!("\"{}\"", unsafe {
-                String::from_utf8_lossy(from_raw_parts(s.0, s.1))
-            }),
+            Value::String(s) => format!("\"{}\"", s.borrow()),
             Value::Bool(b) => format!("{}", b),
             Value::Null => "null".to_string(),
         }
@@ -38,18 +35,9 @@ impl Value {
         match self {
             Value::Float(f) => *f != 0.0,
             Value::Int(i) => *i != 0,
-            Value::String(s) => s.1 != 0,
+            Value::String(s) => !s.borrow().is_empty(),
             Value::Bool(b) => *b,
             Value::Null => false,
-        }
-    }
-
-    pub fn free(&self) {
-        match self {
-            Value::String(s) => unsafe {
-                dealloc(s.0, Layout::for_value(from_raw_parts(s.0, s.1)))
-            },
-            _ => (),
         }
     }
 }
