@@ -522,6 +522,12 @@ impl VM {
         while pc < self.bytecodes.len() {
             let old_pc = pc;
             let byte = self.bytecodes[pc];
+
+            if byte == NOOP {
+                pc += 1;
+                continue;
+            }
+
             let mut args: Vec<String> = vec![];
             match byte {
                 LOAD_CONST => {
