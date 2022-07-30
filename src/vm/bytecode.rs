@@ -56,6 +56,11 @@ bytecodes! {
     // Jumps to address if stack if falsy
     JUMP_IF_FALSE;
 
+    // JUMP_IF_FALSE_NO_POP address
+    // Stack: [a] -> [a]
+    // Jumps to address if stack if falsy, but don't pop
+    JUMP_IF_FALSE_NO_POP;
+
     // JUMP address
     // Stack: [] -> []
     // Jumps to address
@@ -125,6 +130,7 @@ pub fn bytecode_name(bytecode: Byte) -> &'static str {
         LOAD_CONST => "LOAD_CONST",
         LOAD_LOCAL => "LOAD_LOCAL",
         JUMP_IF_FALSE => "JUMP_IF_FALSE",
+        JUMP_IF_FALSE_NO_POP => "JUMP_IF_FALSE_NO_POP",
         JUMP => "JUMP",
         DEBUG_PRINT => "DEBUG_PRINT",
         UNARY_NEG => "UNARY_NEG",

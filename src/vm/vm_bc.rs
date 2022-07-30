@@ -156,7 +156,7 @@ impl VM {
 
     pub fn add_local(&mut self, name: String) -> Option<usize> {
         if let Some(i) =
-            self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
+        self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
         {
             return Some(*i);
         }
@@ -292,48 +292,84 @@ impl VM {
             }
 
             Expression::Infix(infix) => {
-                self.compile_expression(&infix.left);
-                self.compile_expression(&infix.right);
                 match infix.operator {
-                    "+" => {
-                        self.push_bytecode(BINARY_ADD, &infix.pos);
+                    "&&" => {
+                        self.compile_expression(&infix.left);
+
+                        self.push_bytecode(JUMP_IF_FALSE_NO_POP, &infix.pos);
+                        let patch_loc = self.bytecodes.len();
+                        self.push_bytecode(0, &infix.pos);
+
+                        // pop left operand
+                        self.push_bytecode(POP_LAST, &infix.pos);
+
+                        self.compile_expression(&infix.right);
+                        self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
                     }
-                    "-" => {
-                        self.push_bytecode(BINARY_SUB, &infix.pos);
-                    }
-                    "*" => {
-                        self.push_bytecode(BINARY_MUL, &infix.pos);
-                    }
-                    "/" => {
-                        self.push_bytecode(BINARY_DIV, &infix.pos);
-                    }
-                    "%" => {
-                        self.push_bytecode(BINARY_MOD, &infix.pos);
-                    }
-                    "==" => {
-                        self.push_bytecode(BINARY_EQ, &infix.pos);
-                    }
-                    "!=" => {
-                        self.push_bytecode(BINARY_NE, &infix.pos);
-                    }
-                    "<" => {
-                        self.push_bytecode(BINARY_LT, &infix.pos);
-                    }
-                    "<=" => {
-                        self.push_bytecode(BINARY_LE, &infix.pos);
-                    }
-                    ">" => {
-                        self.push_bytecode(BINARY_GT, &infix.pos);
-                    }
-                    ">=" => {
-                        self.push_bytecode(BINARY_GE, &infix.pos);
+                    "||" => {
+                        self.compile_expression(&infix.left);
+
+                        self.push_bytecode(JUMP_IF_FALSE_NO_POP, &infix.pos);
+                        let patch_loc_1 = self.bytecodes.len();
+                        self.push_bytecode(0, &infix.pos);
+
+                        self.push_bytecode(JUMP, &infix.pos);
+                        let patch_loc_2 = self.bytecodes.len();
+                        self.push_bytecode(0, &infix.pos);
+
+                        self.bytecodes[patch_loc_1] = self.bytecodes.len() as Byte;
+
+                        self.push_bytecode(POP_LAST, &infix.pos);
+                        self.compile_expression(&infix.right);
+
+                        self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
                     }
                     _ => {
-                        self.compile_error(
-                            &infix.pos,
-                            format!("Unsupported Operand: {}", infix.operator),
-                        );
-                        return false;
+                        self.compile_expression(&infix.left);
+                        self.compile_expression(&infix.right);
+                        match infix.operator {
+                            "+" => {
+                                self.push_bytecode(BINARY_ADD, &infix.pos);
+                            }
+                            "-" => {
+                                self.push_bytecode(BINARY_SUB, &infix.pos);
+                            }
+                            "*" => {
+                                self.push_bytecode(BINARY_MUL, &infix.pos);
+                            }
+                            "/" => {
+                                self.push_bytecode(BINARY_DIV, &infix.pos);
+                            }
+                            "%" => {
+                                self.push_bytecode(BINARY_MOD, &infix.pos);
+                            }
+                            "==" => {
+                                self.push_bytecode(BINARY_EQ, &infix.pos);
+                            }
+                            "!=" => {
+                                self.push_bytecode(BINARY_NE, &infix.pos);
+                            }
+                            "<" => {
+                                self.push_bytecode(BINARY_LT, &infix.pos);
+                            }
+                            "<=" => {
+                                self.push_bytecode(BINARY_LE, &infix.pos);
+                            }
+                            ">" => {
+                                self.push_bytecode(BINARY_GT, &infix.pos);
+                            }
+                            ">=" => {
+                                self.push_bytecode(BINARY_GE, &infix.pos);
+                            }
+
+                            _ => {
+                                self.compile_error(
+                                    &infix.pos,
+                                    format!("Unsupported Operand: {}", infix.operator),
+                                );
+                                return false;
+                            }
+                        }
                     }
                 }
             }
@@ -483,7 +519,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-            .unwrap();
+                .unwrap();
 
             pc += 1;
         }
@@ -543,6 +579,13 @@ impl VM {
                 JUMP_IF_FALSE => {
                     let address = self.read_bytecode();
                     if !self.stack.pop().unwrap().is_truthy() {
+                        self.pc = address as usize;
+                    }
+                }
+
+                JUMP_IF_FALSE_NO_POP => {
+                    let address = self.read_bytecode();
+                    if !self.stack.last().unwrap().is_truthy() {
                         self.pc = address as usize;
                     }
                 }
