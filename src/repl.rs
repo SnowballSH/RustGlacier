@@ -40,6 +40,8 @@ impl Repl {
                     continue;
                 }
 
+                self.vm.optimize();
+
                 // println!("{}", self.vm.disassemble());
                 // println!("{:?}", self.vm.current_compiler);
 

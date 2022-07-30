@@ -495,6 +495,27 @@ impl VM {
         true
     }
 
+    pub fn optimize(&mut self) {
+        let mut i = 0;
+        while i < self.bytecodes.len() {
+            let b = self.bytecodes[i];
+            if b == LOAD_LOCAL || b == LOAD_CONST {
+                // LOAD xxxx POP
+                // This has no effect at all, except at end of file.
+                if i + 2 < self.bytecodes.len() - 1 && self.bytecodes[i + 2] == POP_LAST {
+                    for j in i..=i + 2 {
+                        self.bytecodes[j] = NOOP;
+                    }
+                    i += 3;
+                    continue;
+                }
+            }
+
+            i += 1;
+            i += operands(b);
+        }
+    }
+
     pub fn disassemble(&self) -> String {
         let mut s = String::new();
         let mut pc = 0;
@@ -528,7 +549,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-            .unwrap();
+                .unwrap();
 
             pc += 1;
         }
@@ -554,6 +575,10 @@ impl VM {
             let bc = self.read_bytecode();
             match bc {
                 // General
+                NOOP => {
+                    // Do nothing
+                }
+
                 POP_LAST => {
                     let v = self.stack.pop();
                     if self.repl_mode {

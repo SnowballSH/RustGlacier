@@ -26,6 +26,10 @@ macro_rules! bytecodes {
 }
 
 bytecodes! {
+    // NOOP
+    // Does nothing, just placeholder
+    NOOP;
+
     // POP_LAST
     // Stack: [a] -> []
     // Pops a
@@ -123,8 +127,16 @@ bytecodes! {
     BINARY_GE;
 }
 
+pub fn operands(bytecode: Byte) -> usize {
+    match bytecode {
+        LOAD_CONST | LOAD_LOCAL | REPLACE | JUMP_IF_FALSE | JUMP_IF_FALSE_NO_POP | JUMP => 1,
+        _ => 0,
+    }
+}
+
 pub fn bytecode_name(bytecode: Byte) -> &'static str {
     match bytecode {
+        NOOP => "NOOP",
         POP_LAST => "POP_LAST",
         REPLACE => "REPLACE",
         LOAD_CONST => "LOAD_CONST",

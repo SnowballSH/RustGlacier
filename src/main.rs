@@ -38,6 +38,8 @@ fn main() {
                     return;
                 }
 
+                vm.optimize();
+
                 // println!("{}", vm.disassemble());
 
                 vm.execute();
