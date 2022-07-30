@@ -155,10 +155,10 @@ impl VM {
     }
 
     pub fn add_local(&mut self, name: String) -> Option<usize> {
-        if let Some(i) =
-        self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
-        {
-            return Some(*i);
+        for i in (0..=self.current_compiler.scope_depth).rev() {
+            if let Some(index) = self.current_compiler.local_map[i].get(&name) {
+                return Some(*index);
+            }
         }
         self.current_compiler.local_map[self.current_compiler.scope_depth]
             .insert(name, self.current_compiler.count);
@@ -407,7 +407,9 @@ impl VM {
 
                 if !iff.body.is_empty() {
                     // Compile then block
+                    self.begin_scope();
                     self.compile_program(&iff.body);
+                    self.end_scope();
 
                     // If there is a result, don't pop it
                     if self.bytecodes.last() == Some(&POP_LAST) {
@@ -438,7 +440,9 @@ impl VM {
                 } else {
                     if !iff.other.is_empty() {
                         // Compile else block
+                        self.begin_scope();
                         self.compile_program(&iff.other);
+                        self.end_scope();
 
                         // If there is a result, don't pop it
                         if self.bytecodes.last() == Some(&POP_LAST) {
@@ -455,6 +459,11 @@ impl VM {
 
                     self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
                 }
+            }
+
+            Expression::While(w) => {
+                self.compile_expression(&w.cond);
+                todo!("do it");
             }
 
             Expression::Do(d) => {

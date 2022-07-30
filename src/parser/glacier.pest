@@ -8,7 +8,7 @@ integer = @{ ASCII_DIGIT{1, 18} }
 idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 identifier = @{ !(keyword ~ !(ASCII_ALPHANUMERIC)) ~ idt }
 keyword = @{
-    "if" | "else" | "do" | "end" | "debug" | "false" | "true"
+    "if" | "else" | "while" | "do" | "end" | "debug" | "false" | "true"
 }
 
 string_literal = @{ "\"" ~ literal_char* ~ "\"" }
@@ -35,9 +35,9 @@ do_block = {
     "do" ~ NEWLINE* ~ block
 }
 
-//while_loop = {
-//    "while" ~ NEWLINE* ~ expression ~ NEWLINE* ~ block
-//}
+while_loop = {
+    "while" ~ NEWLINE* ~ expression ~ NEWLINE* ~ block
+}
 
 indexing = {
     "[" ~ NEWLINE* ~ expression ~ NEWLINE* ~ "]"

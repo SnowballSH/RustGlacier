@@ -103,6 +103,17 @@ fn others(pair: Pair<Rule>) -> Expression {
             }))
         }
 
+        Rule::while_loop => {
+            let mut inner = pair.clone().into_inner();
+            let cond = inner.next().unwrap();
+            let res = inner.next().unwrap();
+            Expression::While(Box::new(While {
+                cond: parse_expression(cond),
+                body: parse_program(res.into_inner()),
+                pos: pair.as_span(),
+            }))
+        }
+
         Rule::do_block => {
             let mut inner = pair.clone().into_inner();
             let res = inner.next().unwrap();
