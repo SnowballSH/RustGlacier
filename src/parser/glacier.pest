@@ -20,7 +20,7 @@ block = {
 }
 
 no_else_block = {
-    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ !"else" ~ stmt?) | ":"? ~ stmt
+    (TERMINATOR* ~ (stmt ~ TERMINATOR+) * ~ stmt? ~ "else") | (":"? ~ stmt ~ "else")
 }
 
 condition_if = {
@@ -28,7 +28,7 @@ condition_if = {
 }
 
 condition_ifelse = {
-    "if" ~ NEWLINE* ~ expression ~ NEWLINE* ~ no_else_block ~ NEWLINE* ~ "else" ~ NEWLINE* ~ block
+    "if" ~ NEWLINE* ~ expression ~ NEWLINE* ~ no_else_block ~ NEWLINE* ~ NEWLINE* ~ block
 }
 
 do_block = {

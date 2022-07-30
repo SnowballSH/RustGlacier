@@ -51,6 +51,16 @@ bytecodes! {
     // Debug prints a
     DEBUG_PRINT;
 
+    // JUMP_IF_FALSE address
+    // Stack: [a] -> []
+    // Jumps to address if stack if falsy
+    JUMP_IF_FALSE;
+
+    // JUMP address
+    // Stack: [] -> []
+    // Jumps to address
+    JUMP;
+
     // UNARY_NEG
     // Stack: [a] -> [-a]
     // Negates a
@@ -97,6 +107,8 @@ pub fn bytecode_name(bytecode: Byte) -> &'static str {
         REPLACE => "REPLACE",
         LOAD_CONST => "LOAD_CONST",
         LOAD_LOCAL => "LOAD_LOCAL",
+        JUMP_IF_FALSE => "JUMP_IF_FALSE",
+        JUMP => "JUMP",
         DEBUG_PRINT => "DEBUG_PRINT",
         UNARY_NEG => "UNARY_NEG",
         UNARY_NOT => "UNARY_NOT",

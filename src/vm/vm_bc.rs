@@ -156,7 +156,7 @@ impl VM {
 
     pub fn add_local(&mut self, name: String) -> Option<usize> {
         if let Some(i) =
-            self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
+        self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
         {
             return Some(*i);
         }
@@ -277,14 +277,20 @@ impl VM {
 
             Expression::SetVar(var) => {
                 let replace = self.add_local(var.name.to_string());
+
                 self.compile_expression(&var.value);
+
                 if let Some(i) = replace {
                     self.push_bytecode(REPLACE, &var.pos);
                     self.push_bytecode(i as Byte, &var.pos);
+                    self.push_bytecode(LOAD_LOCAL, &var.pos);
+                    self.push_bytecode(i as Byte, &var.pos);
+                } else {
+                    self.push_bytecode(LOAD_LOCAL, &var.pos);
+                    self.push_bytecode(self.current_compiler.count as Byte - 1, &var.pos);
                 }
-                self.push_bytecode(LOAD_CONST, &var.pos);
-                self.push_bytecode(NULL_CONSTANT as Byte, &var.pos);
             }
+
             Expression::Infix(infix) => {
                 self.compile_expression(&infix.left);
                 self.compile_expression(&infix.right);
@@ -319,6 +325,7 @@ impl VM {
                     }
                 }
             }
+
             Expression::Prefix(prefix) => match prefix.operator {
                 "-" => {
                     self.compile_expression(&prefix.right);
@@ -336,19 +343,83 @@ impl VM {
                     return false;
                 }
             },
+
             Expression::Index(_) => {
                 unimplemented!()
             }
-            Expression::If(_) => {
-                unimplemented!()
+
+            Expression::If(iff) => {
+                // Compile Condition
+                self.compile_expression(&iff.cond);
+
+                // Jump to else if false
+                self.push_bytecode(JUMP_IF_FALSE, &iff.pos);
+                let patch_loc = self.bytecodes.len();
+                self.push_bytecode(0, &iff.pos);
+
+                if !iff.body.is_empty() {
+                    // Compile then block
+                    self.compile_program(&iff.body);
+
+                    // If there is a result, don't pop it
+                    if self.bytecodes.last() == Some(&POP_LAST) {
+                        self.bytecodes.pop();
+                        self.lines.pop();
+                    } else {
+                        self.push_bytecode(LOAD_CONST, &iff.pos);
+                        self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                    }
+                } else {
+                    self.push_bytecode(LOAD_CONST, &iff.pos);
+                    self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                }
+
+                // Jump to end
+                self.push_bytecode(JUMP, &iff.pos);
+                let patch_loc_2 = self.bytecodes.len();
+                self.push_bytecode(0, &iff.pos);
+
+                // Patch jump 1
+                self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
+
+                if iff.other.is_empty() {
+                    self.push_bytecode(LOAD_CONST, &iff.pos);
+                    self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+
+                    self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
+                } else {
+                    if !iff.other.is_empty() {
+                        // Compile else block
+                        self.compile_program(&iff.other);
+
+                        // If there is a result, don't pop it
+                        if self.bytecodes.last() == Some(&POP_LAST) {
+                            self.bytecodes.pop();
+                            self.lines.pop();
+                        } else {
+                            self.push_bytecode(LOAD_CONST, &iff.pos);
+                            self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                        }
+                    } else {
+                        self.push_bytecode(LOAD_CONST, &iff.pos);
+                        self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                    }
+
+                    self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
+                }
             }
 
             Expression::Do(d) => {
                 self.begin_scope();
                 self.compile_program(&d.body);
                 self.end_scope();
-                self.push_bytecode(LOAD_CONST, &d.pos);
-                self.push_bytecode(NULL_CONSTANT as Byte, &d.pos);
+                if self.bytecodes.last() == Some(&POP_LAST) {
+                    self.bytecodes.pop();
+                    self.lines.pop();
+                } else {
+                    self.push_bytecode(LOAD_CONST, &d.pos);
+                    self.push_bytecode(NULL_CONSTANT as Byte, &d.pos);
+                }
             }
         }
 
@@ -367,7 +438,7 @@ impl VM {
                     pc += 1;
                     let address = self.bytecodes[pc] as usize;
                     args.push(format!(
-                        "{:02x} ({})",
+                        "{:04x} ({})",
                         address,
                         self.constants[address].debug_format()
                     ));
@@ -376,7 +447,19 @@ impl VM {
                 LOAD_LOCAL => {
                     pc += 1;
                     let address = self.bytecodes[pc] as usize;
-                    args.push(format!("{:02x}", address,));
+                    args.push(format!("{:04x}", address));
+                }
+
+                JUMP_IF_FALSE => {
+                    pc += 1;
+                    let address = self.bytecodes[pc] as usize;
+                    args.push(format!("{:04x}", address));
+                }
+
+                JUMP => {
+                    pc += 1;
+                    let address = self.bytecodes[pc] as usize;
+                    args.push(format!("{:04x}", address));
                 }
 
                 _ => (),
@@ -388,7 +471,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-            .unwrap();
+                .unwrap();
 
             pc += 1;
         }
@@ -443,6 +526,18 @@ impl VM {
                     let index = self.read_bytecode();
                     self.stack
                         .push(self.stack.get(index as usize).unwrap().clone());
+                }
+
+                JUMP_IF_FALSE => {
+                    let address = self.read_bytecode();
+                    if !self.stack.pop().unwrap().is_truthy() {
+                        self.pc = address as usize;
+                    }
+                }
+
+                JUMP => {
+                    let address = self.read_bytecode();
+                    self.pc = address as usize;
                 }
 
                 DEBUG_PRINT => {

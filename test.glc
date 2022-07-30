@@ -1,27 +1,12 @@
-a = 1234321
-debug a
-
-debug "Global:"
-
-a = 2
-debug a
-
-do
-    debug "Scope 1 =>"
-    a = 3
-    debug a
-
-    do
-        debug "Scope 2 =>"
-        a = 4
-        debug a
-        debug "<= Scope 2"
-    end
-
-    debug a
-    debug "<= Scope 1"
+a = 0
+b = 0
+debug if a + b == 3
+    debug "a + b = 3"
+    "=3"
+else:if a + b == 2
+    debug "a + b = 2"
+    "=2"
+else
+    debug "???"
+    "?"
 end
-
-debug a
-
-debug "<= Global"

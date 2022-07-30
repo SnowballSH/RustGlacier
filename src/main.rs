@@ -38,6 +38,8 @@ fn main() {
                     return;
                 }
 
+                // println!("{}", vm.disassemble());
+
                 vm.execute();
                 if let Some(e) = &vm.error {
                     println!("{}", e);
