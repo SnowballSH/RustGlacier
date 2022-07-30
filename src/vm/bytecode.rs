@@ -91,7 +91,7 @@ bytecodes! {
     // a MOD b
     BINARY_MOD;
 
-    //BINARY_EQ
+    // BINARY_EQ
     // Stack: [a, b] -> [a == b]
     // a == b
     BINARY_EQ;
@@ -99,6 +99,23 @@ bytecodes! {
     // Stack: [a, b] -> [a != b]
     // a != b
     BINARY_NE;
+
+    // BINARY_LT
+    // Stack: [a, b] -> [a < b]
+    // a < b
+    BINARY_LT;
+    // BINARY_LE
+    // Stack: [a, b] -> [a <= b]
+    // a <= b
+    BINARY_LE;
+    // BINARY_GT
+    // Stack: [a, b] -> [a > b]
+    // a > b
+    BINARY_GT;
+    // BINARY_GE
+    // Stack: [a, b] -> [a >= b]
+    // a >= b
+    BINARY_GE;
 }
 
 pub fn bytecode_name(bytecode: Byte) -> &'static str {

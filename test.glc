@@ -1,12 +1,10 @@
-a = 0
-b = 0
-debug if a + b == 3
-    debug "a + b = 3"
-    "=3"
-else:if a + b == 2
-    debug "a + b = 2"
-    "=2"
+a = "abc"
+b = "abcd"
+
+if a < b
+    debug "a < b"
+else:if a > b
+    debug "a > b"
 else
-    debug "???"
-    "?"
+    debug "a == b"
 end

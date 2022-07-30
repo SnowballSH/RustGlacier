@@ -156,7 +156,7 @@ impl VM {
 
     pub fn add_local(&mut self, name: String) -> Option<usize> {
         if let Some(i) =
-        self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
+            self.current_compiler.local_map[self.current_compiler.scope_depth].get(&name)
         {
             return Some(*i);
         }
@@ -316,6 +316,18 @@ impl VM {
                     "!=" => {
                         self.push_bytecode(BINARY_NE, &infix.pos);
                     }
+                    "<" => {
+                        self.push_bytecode(BINARY_LT, &infix.pos);
+                    }
+                    "<=" => {
+                        self.push_bytecode(BINARY_LE, &infix.pos);
+                    }
+                    ">" => {
+                        self.push_bytecode(BINARY_GT, &infix.pos);
+                    }
+                    ">=" => {
+                        self.push_bytecode(BINARY_GE, &infix.pos);
+                    }
                     _ => {
                         self.compile_error(
                             &infix.pos,
@@ -471,7 +483,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-                .unwrap();
+            .unwrap();
 
             pc += 1;
         }
@@ -701,6 +713,90 @@ impl VM {
                     let left = self.stack.pop().unwrap();
                     unsafe {
                         self.stack.push_unchecked(Value::Bool(left != right));
+                    }
+                }
+
+                BINARY_LT => {
+                    let right = self.stack.pop().unwrap();
+                    let left = self.stack.pop().unwrap();
+                    match (&left, &right) {
+                        (Value::Int(l), Value::Int(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(*l < *r));
+                        },
+                        (Value::String(l), Value::String(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(l < r));
+                        },
+                        _ => {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} < {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
+                        }
+                    }
+                }
+
+                BINARY_LE => {
+                    let right = self.stack.pop().unwrap();
+                    let left = self.stack.pop().unwrap();
+                    match (&left, &right) {
+                        (Value::Int(l), Value::Int(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(*l <= *r));
+                        },
+                        (Value::String(l), Value::String(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(l <= r));
+                        },
+                        _ => {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} <= {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
+                        }
+                    }
+                }
+
+                BINARY_GT => {
+                    let right = self.stack.pop().unwrap();
+                    let left = self.stack.pop().unwrap();
+                    match (&left, &right) {
+                        (Value::Int(l), Value::Int(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(*l > *r));
+                        },
+                        (Value::String(l), Value::String(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(l > r));
+                        },
+                        _ => {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} > {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
+                        }
+                    }
+                }
+
+                BINARY_GE => {
+                    let right = self.stack.pop().unwrap();
+                    let left = self.stack.pop().unwrap();
+                    match (&left, &right) {
+                        (Value::Int(l), Value::Int(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(*l >= *r));
+                        },
+                        (Value::String(l), Value::String(r)) => unsafe {
+                            self.stack.push_unchecked(Value::Bool(l >= r));
+                        },
+                        _ => {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} >= {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
+                        }
                     }
                 }
 
