@@ -154,16 +154,16 @@ impl VM {
         self.current_compiler.count -= self.current_compiler.local_map.pop().unwrap().len();
     }
 
-    pub fn add_local(&mut self, name: String) -> Option<usize> {
+    pub fn add_local(&mut self, name: String) -> usize {
         for i in (0..=self.current_compiler.scope_depth).rev() {
             if let Some(index) = self.current_compiler.local_map[i].get(&name) {
-                return Some(*index);
+                return *index;
             }
         }
         self.current_compiler.local_map[self.current_compiler.scope_depth]
             .insert(name, self.current_compiler.count);
         self.current_compiler.count += 1;
-        None
+        self.current_compiler.count - 1
     }
 
     pub fn resolve_local(&mut self, name: String) -> Option<usize> {
@@ -280,15 +280,10 @@ impl VM {
 
                 self.compile_expression(&var.value);
 
-                if let Some(i) = replace {
-                    self.push_bytecode(REPLACE, &var.pos);
-                    self.push_bytecode(i as Byte, &var.pos);
-                    self.push_bytecode(LOAD_LOCAL, &var.pos);
-                    self.push_bytecode(i as Byte, &var.pos);
-                } else {
-                    self.push_bytecode(LOAD_LOCAL, &var.pos);
-                    self.push_bytecode(self.current_compiler.count as Byte - 1, &var.pos);
-                }
+                self.push_bytecode(REPLACE, &var.pos);
+                self.push_bytecode(replace as Byte, &var.pos);
+                self.push_bytecode(LOAD_LOCAL, &var.pos);
+                self.push_bytecode(replace as Byte, &var.pos);
             }
 
             Expression::Infix(infix) => {
@@ -462,8 +457,25 @@ impl VM {
             }
 
             Expression::While(w) => {
+                let loop_start = self.bytecodes.len();
+
                 self.compile_expression(&w.cond);
-                todo!("do it");
+
+                self.push_bytecode(JUMP_IF_FALSE, &w.pos);
+                let patch_loc = self.bytecodes.len();
+                self.push_bytecode(0, &w.pos);
+
+                self.begin_scope();
+                self.compile_program(&w.body);
+                self.end_scope();
+
+                self.push_bytecode(JUMP, &w.pos);
+                self.push_bytecode(loop_start as Byte, &w.pos);
+
+                self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
+
+                self.push_bytecode(LOAD_CONST, &w.pos);
+                self.push_bytecode(NULL_CONSTANT as Byte, &w.pos);
             }
 
             Expression::Do(d) => {
@@ -501,19 +513,7 @@ impl VM {
                     ));
                 }
 
-                LOAD_LOCAL => {
-                    pc += 1;
-                    let address = self.bytecodes[pc] as usize;
-                    args.push(format!("{:04x}", address));
-                }
-
-                JUMP_IF_FALSE => {
-                    pc += 1;
-                    let address = self.bytecodes[pc] as usize;
-                    args.push(format!("{:04x}", address));
-                }
-
-                JUMP => {
+                LOAD_LOCAL | REPLACE | JUMP_IF_FALSE | JUMP_IF_FALSE_NO_POP | JUMP => {
                     pc += 1;
                     let address = self.bytecodes[pc] as usize;
                     args.push(format!("{:04x}", address));
@@ -528,7 +528,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-                .unwrap();
+            .unwrap();
 
             pc += 1;
         }
@@ -564,6 +564,9 @@ impl VM {
                 REPLACE => {
                     let index = self.read_bytecode();
                     let v = self.stack.pop().unwrap();
+                    while self.stack.len() <= index as usize {
+                        self.stack.push(Value::Null);
+                    }
                     self.stack[index as usize] = v;
                 }
 

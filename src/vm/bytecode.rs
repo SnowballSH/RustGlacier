@@ -142,6 +142,10 @@ pub fn bytecode_name(bytecode: Byte) -> &'static str {
         BINARY_MOD => "BINARY_MOD",
         BINARY_EQ => "BINARY_EQ",
         BINARY_NE => "BINARY_NE",
+        BINARY_LT => "BINARY_LT",
+        BINARY_LE => "BINARY_LE",
+        BINARY_GT => "BINARY_GT",
+        BINARY_GE => "BINARY_GE",
         _ => "UNKNOWN",
     }
 }

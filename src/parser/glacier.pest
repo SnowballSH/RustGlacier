@@ -55,7 +55,7 @@ term = _{ string_literal | integer | false_expr | true_expr | identifier | "(" ~
 prefix = { prefix_operators+ ~ expression_inner }
 
 // condition_ifelse must be before condition_if
-expression_inner = _{ condition_ifelse | condition_if | do_block | assign | suffix | prefix | term }
+expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix | prefix | term }
 
 add = { "+" }
 sub = { "-" }
