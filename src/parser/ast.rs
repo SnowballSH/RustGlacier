@@ -94,6 +94,8 @@ pub struct Index<'a> {
 pub enum Statement<'a> {
     ExprStmt(ExprStmt<'a>),
     DebugPrint(DebugPrint<'a>),
+    Break(Break<'a>),
+    Next(Next<'a>),
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +107,16 @@ pub struct ExprStmt<'a> {
 #[derive(Debug, Clone)]
 pub struct DebugPrint<'a> {
     pub expr: Expression<'a>,
+    pub pos: Span<'a>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Break<'a> {
+    pub pos: Span<'a>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Next<'a> {
     pub pos: Span<'a>,
 }
 

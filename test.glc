@@ -1,15 +1,6 @@
-# Calculates the Nth fibonacci number
-
-a = 0
-b = 1
-
-n = 1
-N = 20
-while n < N
-    c = b
-    b = a + b
-    a = c
+n = 0
+while n <= 10
     n = n + 1
+    if n == 4: next
+    debug n
 end
-
-debug b

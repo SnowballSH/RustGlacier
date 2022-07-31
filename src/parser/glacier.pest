@@ -8,7 +8,7 @@ integer = @{ ASCII_DIGIT{1, 18} }
 idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 identifier = @{ !(keyword ~ !(ASCII_ALPHANUMERIC)) ~ idt }
 keyword = @{
-    "if" | "else" | "while" | "do" | "end" | "debug" | "false" | "true"
+    "if" | "else" | "while" | "do" | "end" | "debug" | "false" | "true" | "break" | "next"
 }
 
 string_literal = @{ "\"" ~ literal_char* ~ "\"" }
@@ -88,11 +88,16 @@ assign = { identifier ~ "=" ~ expression }
 
 debug_print = { "debug" ~ expression }
 
+break_stmt = { "break" }
+next_stmt = { "next" }
+
 expression = { infix | expression_inner }
 
 expression_stmt = { expression }
 
 stmt = _{
     debug_print
+    | break_stmt
+    | next_stmt
     | expression_stmt
 }

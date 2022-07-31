@@ -208,6 +208,12 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
                 pos: s,
             })
         }
+        Rule::break_stmt => Statement::Break(Break {
+            pos: pair.as_span(),
+        }),
+        Rule::next_stmt => Statement::Next(Next {
+            pos: pair.as_span(),
+        }),
         _ => unreachable!(),
     }
 }
@@ -216,9 +222,11 @@ fn parse_program(res: Pairs<Rule>) -> Program {
     let mut ast = vec![];
     for pair in res {
         match pair.as_rule() {
-            Rule::stmt | Rule::expression_stmt | Rule::debug_print => {
-                ast.push(parse_statement(pair))
-            }
+            Rule::stmt
+            | Rule::expression_stmt
+            | Rule::debug_print
+            | Rule::break_stmt
+            | Rule::next_stmt => ast.push(parse_statement(pair)),
             _ => {}
         }
     }

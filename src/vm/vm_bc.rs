@@ -38,6 +38,9 @@ pub struct VM {
     pub constants: ArrayVec<Value, CONSTANT_SIZE>,
     pub constant_hash_small_int: [Option<Byte>; CONSTANT_SMALL_INT_SIZE],
 
+    pub break_jump_patches: Vec<Vec<usize>>,
+    pub next_jump_patches: Vec<Vec<usize>>,
+
     pub current_compiler: Compiler,
 
     pub stack: ArrayVec<Value, STACK_SIZE>,
@@ -59,6 +62,9 @@ impl Default for VM {
 
             constants: ArrayVec::new(),
             constant_hash_small_int: [None; CONSTANT_SMALL_INT_SIZE],
+
+            break_jump_patches: Vec::new(),
+            next_jump_patches: Vec::new(),
 
             current_compiler: Default::default(),
 
@@ -185,10 +191,13 @@ impl VM {
         self.compile_program(program);
     }
 
-    pub fn compile_program(&mut self, program: &Program) {
+    pub fn compile_program(&mut self, program: &Program) -> bool {
         for stmt in program {
-            self.compile_statement(stmt);
+            if !self.compile_statement(stmt) {
+                return false;
+            }
         }
+        true
     }
 
     pub fn compile_statement(&mut self, statement: &Statement) -> bool {
@@ -204,6 +213,32 @@ impl VM {
                     return false;
                 };
                 self.push_bytecode(DEBUG_PRINT, &e.pos);
+            }
+            Statement::Break(b) => {
+                self.push_bytecode(JUMP, &b.pos);
+                if let Some(patches) = self.break_jump_patches.last_mut() {
+                    patches.push(self.bytecodes.len());
+                } else {
+                    self.compile_error(
+                        &b.pos,
+                        "Break statement outside of loop is not allowed".to_string(),
+                    );
+                    return false;
+                }
+                self.push_bytecode(0, &b.pos);
+            }
+            Statement::Next(b) => {
+                self.push_bytecode(JUMP, &b.pos);
+                if let Some(patches) = self.next_jump_patches.last_mut() {
+                    patches.push(self.bytecodes.len());
+                } else {
+                    self.compile_error(
+                        &b.pos,
+                        "Next statement outside of loop is not allowed".to_string(),
+                    );
+                    return false;
+                }
+                self.push_bytecode(0, &b.pos);
             }
         }
         true
@@ -278,7 +313,9 @@ impl VM {
             Expression::SetVar(var) => {
                 let replace = self.add_local(var.name.to_string());
 
-                self.compile_expression(&var.value);
+                if !self.compile_expression(&var.value) {
+                    return false;
+                }
 
                 self.push_bytecode(REPLACE, &var.pos);
                 self.push_bytecode(replace as Byte, &var.pos);
@@ -289,7 +326,9 @@ impl VM {
             Expression::Infix(infix) => {
                 match infix.operator {
                     "&&" => {
-                        self.compile_expression(&infix.left);
+                        if !self.compile_expression(&infix.left) {
+                            return false;
+                        }
 
                         self.push_bytecode(JUMP_IF_FALSE_NO_POP, &infix.pos);
                         let patch_loc = self.bytecodes.len();
@@ -298,11 +337,15 @@ impl VM {
                         // pop left operand
                         self.push_bytecode(POP_LAST, &infix.pos);
 
-                        self.compile_expression(&infix.right);
+                        if !self.compile_expression(&infix.right) {
+                            return false;
+                        }
                         self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
                     }
                     "||" => {
-                        self.compile_expression(&infix.left);
+                        if !self.compile_expression(&infix.left) {
+                            return false;
+                        }
 
                         self.push_bytecode(JUMP_IF_FALSE_NO_POP, &infix.pos);
                         let patch_loc_1 = self.bytecodes.len();
@@ -315,13 +358,19 @@ impl VM {
                         self.bytecodes[patch_loc_1] = self.bytecodes.len() as Byte;
 
                         self.push_bytecode(POP_LAST, &infix.pos);
-                        self.compile_expression(&infix.right);
+                        if !self.compile_expression(&infix.right) {
+                            return false;
+                        }
 
                         self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
                     }
                     _ => {
-                        self.compile_expression(&infix.left);
-                        self.compile_expression(&infix.right);
+                        if !self.compile_expression(&infix.left) {
+                            return false;
+                        }
+                        if !self.compile_expression(&infix.right) {
+                            return false;
+                        }
                         match infix.operator {
                             "+" => {
                                 self.push_bytecode(BINARY_ADD, &infix.pos);
@@ -371,11 +420,15 @@ impl VM {
 
             Expression::Prefix(prefix) => match prefix.operator {
                 "-" => {
-                    self.compile_expression(&prefix.right);
+                    if !self.compile_expression(&prefix.right) {
+                        return false;
+                    }
                     self.push_bytecode(UNARY_NEG, &prefix.pos);
                 }
                 "!" => {
-                    self.compile_expression(&prefix.right);
+                    if !self.compile_expression(&prefix.right) {
+                        return false;
+                    }
                     self.push_bytecode(UNARY_NOT, &prefix.pos);
                 }
                 _ => {
@@ -393,7 +446,9 @@ impl VM {
 
             Expression::If(iff) => {
                 // Compile Condition
-                self.compile_expression(&iff.cond);
+                if !self.compile_expression(&iff.cond) {
+                    return false;
+                }
 
                 // Jump to else if false
                 self.push_bytecode(JUMP_IF_FALSE, &iff.pos);
@@ -403,7 +458,9 @@ impl VM {
                 if !iff.body.is_empty() {
                     // Compile then block
                     self.begin_scope();
-                    self.compile_program(&iff.body);
+                    if !self.compile_program(&iff.body) {
+                        return false;
+                    }
                     self.end_scope();
 
                     // If there is a result, don't pop it
@@ -436,7 +493,9 @@ impl VM {
                     if !iff.other.is_empty() {
                         // Compile else block
                         self.begin_scope();
-                        self.compile_program(&iff.other);
+                        if !self.compile_program(&iff.other) {
+                            return false;
+                        }
                         self.end_scope();
 
                         // If there is a result, don't pop it
@@ -457,16 +516,23 @@ impl VM {
             }
 
             Expression::While(w) => {
+                self.break_jump_patches.push(Vec::new());
+                self.next_jump_patches.push(Vec::new());
+
                 let loop_start = self.bytecodes.len();
 
-                self.compile_expression(&w.cond);
+                if !self.compile_expression(&w.cond) {
+                    return false;
+                }
 
                 self.push_bytecode(JUMP_IF_FALSE, &w.pos);
                 let patch_loc = self.bytecodes.len();
                 self.push_bytecode(0, &w.pos);
 
                 self.begin_scope();
-                self.compile_program(&w.body);
+                if !self.compile_program(&w.body) {
+                    return false;
+                }
                 self.end_scope();
 
                 self.push_bytecode(JUMP, &w.pos);
@@ -474,13 +540,25 @@ impl VM {
 
                 self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
 
+                let list = self.break_jump_patches.pop().unwrap();
+                for i in list {
+                    self.bytecodes[i] = self.bytecodes.len() as Byte;
+                }
+
+                let list = self.next_jump_patches.pop().unwrap();
+                for i in list {
+                    self.bytecodes[i] = loop_start as Byte;
+                }
+
                 self.push_bytecode(LOAD_CONST, &w.pos);
                 self.push_bytecode(NULL_CONSTANT as Byte, &w.pos);
             }
 
             Expression::Do(d) => {
                 self.begin_scope();
-                self.compile_program(&d.body);
+                if !self.compile_program(&d.body) {
+                    return false;
+                }
                 self.end_scope();
                 if self.bytecodes.last() == Some(&POP_LAST) {
                     self.bytecodes.pop();
@@ -555,7 +633,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-                .unwrap();
+            .unwrap();
 
             pc += 1;
         }
