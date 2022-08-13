@@ -55,7 +55,7 @@ fn others(pair: Pair<Rule>) -> Expression {
         Rule::array => {
             let inner = pair.clone().into_inner();
             Expression::Array(Array {
-                values: inner.map(|x| parse_expression(x)).collect(),
+                values: inner.map(parse_expression).collect(),
                 pos: pair.as_span(),
             })
         }
