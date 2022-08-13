@@ -54,8 +54,12 @@ term = _{ string_literal | integer | false_expr | true_expr | identifier | "(" ~
 
 prefix = { prefix_operators+ ~ expression_inner }
 
+assign = { identifier ~ "=" ~ expression }
+
+array = { "[" ~ NEWLINE* ~ (expression ~ NEWLINE* ~ ","? ~ NEWLINE*)* ~ "]" }
+
 // condition_ifelse must be before condition_if
-expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix | prefix | term }
+expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix | prefix | array | term }
 
 add = { "+" }
 sub = { "-" }
@@ -83,8 +87,6 @@ prefix_operators = _{
 }
 
 infix = _{ expression_inner ~ (operators ~ expression_inner)+ }
-
-assign = { identifier ~ "=" ~ expression }
 
 debug_print = { "debug" ~ expression }
 

@@ -50,6 +50,11 @@ bytecodes! {
     // Loads stack[address] onto stack
     LOAD_LOCAL;
 
+    // MAKE_ARRAY length
+    // Stack: [d, c, b, a] -> [ARR]
+    // Pops `length` items and pushes array
+    MAKE_ARRAY;
+
     // DEBUG_PRINT
     // Stack: [a] -> []
     // Debug prints a
@@ -141,6 +146,7 @@ pub fn bytecode_name(bytecode: Byte) -> &'static str {
         REPLACE => "REPLACE",
         LOAD_CONST => "LOAD_CONST",
         LOAD_LOCAL => "LOAD_LOCAL",
+        MAKE_ARRAY => "MAKE_ARRAY",
         JUMP_IF_FALSE => "JUMP_IF_FALSE",
         JUMP_IF_FALSE_NO_POP => "JUMP_IF_FALSE_NO_POP",
         JUMP => "JUMP",

@@ -5,6 +5,7 @@ pub enum Expression<'a> {
     String_(String_<'a>),
     Int(Integer<'a>),
     Bool(Bool<'a>),
+    Array(Array<'a>),
     GetVar(GetVar<'a>),
     SetVar(Box<SetVar<'a>>),
     Infix(Box<Infix<'a>>),
@@ -67,6 +68,12 @@ pub struct Integer<'a> {
 #[derive(Debug, Clone)]
 pub struct Bool<'a> {
     pub value: bool,
+    pub pos: Span<'a>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Array<'a> {
+    pub values: Vec<Expression<'a>>,
     pub pos: Span<'a>,
 }
 

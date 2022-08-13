@@ -1,12 +1,14 @@
-use super::bytecode::*;
-use crate::ast::*;
-use crate::value::*;
 use std::collections::HashMap;
 use std::fmt::Write;
 
 use arrayvec::ArrayVec;
 use gc::{Gc, GcCell};
 use pest::Span;
+
+use crate::ast::*;
+use crate::value::*;
+
+use super::bytecode::*;
 
 pub const BYTECODE_CAP: usize = 1024;
 pub const CONSTANT_SIZE: usize = 1024;
@@ -297,6 +299,14 @@ impl VM {
                 };
                 self.push_bytecode(LOAD_CONST, &b.pos);
                 self.push_bytecode(index as Byte, &b.pos);
+            }
+
+            Expression::Array(a) => {
+                for x in a.values.iter().rev() {
+                    self.compile_expression(x);
+                }
+                self.push_bytecode(MAKE_ARRAY, &a.pos);
+                self.push_bytecode(a.values.len() as Byte, &a.pos);
             }
 
             Expression::GetVar(get) => {
@@ -618,7 +628,7 @@ impl VM {
                     ));
                 }
 
-                LOAD_LOCAL | REPLACE | JUMP_IF_FALSE | JUMP_IF_FALSE_NO_POP | JUMP => {
+                LOAD_LOCAL | MAKE_ARRAY | REPLACE | JUMP_IF_FALSE | JUMP_IF_FALSE_NO_POP | JUMP => {
                     pc += 1;
                     let address = self.bytecodes[pc] as usize;
                     args.push(format!("{:04x}", address));
@@ -695,6 +705,17 @@ impl VM {
                     let index = self.read_bytecode();
                     self.stack
                         .push(self.stack.get(index as usize).unwrap().clone());
+                }
+
+                MAKE_ARRAY => {
+                    let length = self.read_bytecode() as usize;
+                    let mut array = Vec::with_capacity(length);
+                    for _ in 0..length {
+                        array.push(GcCell::new(self.stack.pop().unwrap()));
+                    }
+                    unsafe {
+                        self.stack.push_unchecked(Value::Array(array));
+                    }
                 }
 
                 JUMP_IF_FALSE => {

@@ -1,13 +1,15 @@
-use gc::{Gc, GcCell};
+use gc::{Finalize, Gc, GcCell, Trace};
 
 #[repr(C)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Finalize, Trace, Debug, Clone, PartialEq)]
 pub enum Value {
     Float(f64),
     Int(i64),
     String(GcCell<String>),
     Bool(bool),
     Null,
+
+    Array(Vec<GcCell<Value>>),
 }
 
 impl Value {
@@ -18,6 +20,14 @@ impl Value {
             Value::String(s) => format!("\"{}\"", s.borrow()),
             Value::Bool(b) => format!("{}", b),
             Value::Null => "null".to_string(),
+
+            Value::Array(a) => format!(
+                "[{}]",
+                a.iter()
+                    .map(|v| v.borrow().debug_format())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
         }
     }
 
@@ -28,6 +38,8 @@ impl Value {
             Value::String(_) => "string",
             Value::Bool(_) => "bool",
             Value::Null => "null",
+
+            Value::Array(_) => "array",
         }
     }
 
@@ -38,6 +50,8 @@ impl Value {
             Value::String(s) => !s.borrow().is_empty(),
             Value::Bool(b) => *b,
             Value::Null => false,
+
+            Value::Array(a) => !a.is_empty(),
         }
     }
 }

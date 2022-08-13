@@ -1,14 +1,13 @@
-pub mod ast;
-
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
 use pest::prec_climber::*;
 use pest::Parser;
 use pest_derive::*;
 
+use ast::*;
 use Rule::*;
 
-use ast::*;
+pub mod ast;
 
 lazy_static! {
     static ref PREC_CLIMBER: PrecClimber<Rule> = {
@@ -52,6 +51,14 @@ fn others(pair: Pair<Rule>) -> Expression {
             value: pair.as_str().parse().unwrap(),
             pos: pair.as_span(),
         }),
+
+        Rule::array => {
+            let inner = pair.clone().into_inner();
+            Expression::Array(Array {
+                values: inner.map(|x| parse_expression(x)).collect(),
+                pos: pair.as_span(),
+            })
+        }
 
         Rule::false_expr => Expression::Bool(Bool {
             value: false,
