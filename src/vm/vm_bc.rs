@@ -2,13 +2,14 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use arrayvec::ArrayVec;
-use gc::{Gc, GcCell};
+use gc::GcCell;
 use pest::Span;
 
 use crate::ast::*;
 use crate::value::*;
 
 use super::bytecode::*;
+use super::memory::*;
 
 pub const BYTECODE_CAP: usize = 1024;
 pub const CONSTANT_SIZE: usize = 1024;
@@ -45,9 +46,9 @@ pub struct VM {
 
     pub current_compiler: Compiler,
 
-    pub stack: ArrayVec<Value, STACK_SIZE>,
+    pub stack: ArrayVec<*mut Value, STACK_SIZE>,
 
-    pub last_popped: Option<Value>,
+    pub last_popped: Option<*mut Value>,
     pub repl_mode: bool,
 
     pub error: Option<String>,
@@ -397,6 +398,7 @@ impl VM {
                             "%" => {
                                 self.push_bytecode(BINARY_MOD, &infix.pos);
                             }
+
                             "==" => {
                                 self.push_bytecode(BINARY_EQ, &infix.pos);
                             }
@@ -450,8 +452,16 @@ impl VM {
                 }
             },
 
-            Expression::Index(_) => {
-                unimplemented!()
+            Expression::Index(indexing) => {
+                if !self.compile_expression(&indexing.callee) {
+                    return false;
+                }
+
+                if !self.compile_expression(&indexing.index) {
+                    return false;
+                }
+
+                self.push_bytecode(GET, &indexing.pos);
             }
 
             Expression::If(iff) => {
@@ -666,329 +676,356 @@ impl VM {
         self.last_popped = None;
         self.pc = 0;
         while self.pc < self.bytecodes.len() {
-            let bc = self.read_bytecode();
-            match bc {
-                // General
-                NOOP => {
-                    // Do nothing
-                }
-
-                POP_LAST => {
-                    let v = self.stack.pop();
-                    if self.repl_mode {
-                        self.last_popped = v;
+            unsafe {
+                let bc = self.read_bytecode();
+                match bc {
+                    // General
+                    NOOP => {
+                        // Do nothing
                     }
-                }
 
-                REPLACE => {
-                    let index = self.read_bytecode();
-                    let v = self.stack.pop().unwrap();
-                    while self.stack.len() <= index as usize {
-                        self.stack.push(Value::Null);
+                    POP_LAST => {
+                        let v = self.stack.pop();
+                        if self.repl_mode {
+                            self.last_popped = v;
+                        }
                     }
-                    self.stack[index as usize] = v;
-                }
 
-                LOAD_CONST => {
-                    let index = self.read_bytecode();
-                    if self
-                        .stack
-                        .try_push(self.constants[index as usize].clone())
-                        .is_err()
-                    {
-                        self.runtime_error("Stack overflow".to_string());
+                    REPLACE => {
+                        let index = self.read_bytecode();
+                        let v = self.stack.pop().unwrap();
+                        while self.stack.len() <= index as usize {
+                            self.stack
+                                .push(&mut self.constants[NULL_CONSTANT] as *mut Value);
+                        }
+                        self.stack[index as usize] = v;
+                    }
+
+                    LOAD_CONST => {
+                        let index = self.read_bytecode();
+                        if self
+                            .stack
+                            .try_push(alloc_new_value(self.constants[index as usize].clone()))
+                            .is_err()
+                        {
+                            self.runtime_error("Stack overflow".to_string());
+                            return;
+                        }
+                    }
+
+                    LOAD_LOCAL => {
+                        let index = self.read_bytecode();
+                        self.stack.push(*self.stack.get(index as usize).unwrap());
+                    }
+
+                    MAKE_ARRAY => {
+                        let length = self.read_bytecode() as usize;
+                        let mut array = Vec::with_capacity(length);
+                        for _ in 0..length {
+                            array.push(self.stack.pop().unwrap());
+                        }
+                        self.stack
+                            .push_unchecked(alloc_new_value(Value::Array(array)));
+                    }
+
+                    JUMP_IF_FALSE => {
+                        let address = self.read_bytecode();
+                        if !(*self.stack.pop().unwrap()).is_truthy() {
+                            self.pc = address as usize;
+                        }
+                    }
+
+                    JUMP_IF_FALSE_NO_POP => {
+                        let address = self.read_bytecode();
+                        if !(*self.stack.pop().unwrap()).is_truthy() {
+                            self.pc = address as usize;
+                        }
+                    }
+
+                    JUMP => {
+                        let address = self.read_bytecode();
+                        self.pc = address as usize;
+                    }
+
+                    DEBUG_PRINT => {
+                        let value = self.stack.pop().unwrap();
+                        println!("{}", (*value).debug_format());
+                    }
+
+                    GET => {
+                        let index = self.stack.pop().unwrap();
+                        let callee = self.stack.pop().unwrap();
+
+                        let res = (*callee).get_element(index);
+                        if res.is_err() {
+                            self.runtime_error(res.err().unwrap());
+                            return;
+                        }
+
+                        self.stack.push(res.unwrap());
+                    }
+
+                    // Prefix operators
+                    UNARY_NEG => {
+                        let value = &*self.stack.pop().unwrap();
+                        match value {
+                            Value::Bool(_) => {
+                                self.runtime_error(
+                                    "Unsupported Unary operation: -bool (Hint: Use !bool instead)"
+                                        .to_string(),
+                                );
+                                return;
+                            }
+                            Value::Int(i) => {
+                                // We just popped an element, so there should be an empty space on the stack.
+                                self.stack.push_unchecked(alloc_new_value(Value::Int(
+                                    i.saturating_neg(),
+                                )));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Unary operation: -{}",
+                                    value.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    UNARY_NOT => {
+                        let value = &*self.stack.pop().unwrap();
+                        self.stack
+                            .push_unchecked(alloc_new_value(Value::Bool(!value.is_truthy())));
+                    }
+
+                    // Infix operators
+                    BINARY_ADD => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack.push_unchecked(alloc_new_value(Value::Int(
+                                    l.wrapping_add(*r),
+                                )));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} + {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_SUB => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack.push_unchecked(alloc_new_value(Value::Int(
+                                    l.wrapping_sub(*r),
+                                )));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} - {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_MUL => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack.push_unchecked(alloc_new_value(Value::Int(
+                                    l.wrapping_mul(*r),
+                                )));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} * {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_DIV => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                if *r == 0 {
+                                    self.runtime_error(format!(
+                                        "Division by zero: {} / 0",
+                                        left.debug_format()
+                                    ));
+                                    return;
+                                }
+
+                                self.stack.push_unchecked(alloc_new_value(Value::Int(
+                                    l.wrapping_div(*r),
+                                )));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} / {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_MOD => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                if *r == 0 {
+                                    self.runtime_error(format!(
+                                        "Modulo by zero: {} % 0",
+                                        left.debug_format()
+                                    ));
+                                    return;
+                                }
+
+                                self.stack.push_unchecked(alloc_new_value(Value::Int(
+                                    l.wrapping_rem(*r),
+                                )));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} % {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_EQ => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        self.stack
+                            .push_unchecked(alloc_new_value(Value::Bool(left == right)));
+                    }
+
+                    BINARY_NE => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        self.stack
+                            .push_unchecked(alloc_new_value(Value::Bool(left != right)));
+                    }
+
+                    BINARY_LT => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(*l < *r)));
+                            }
+                            (Value::String(l), Value::String(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(l < r)));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} < {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_LE => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(*l <= *r)));
+                            }
+                            (Value::String(l), Value::String(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(l <= r)));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} <= {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_GT => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(*l > *r)));
+                            }
+                            (Value::String(l), Value::String(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(l > r)));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} > {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    BINARY_GE => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        match (&left, &right) {
+                            (Value::Int(l), Value::Int(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(*l >= *r)));
+                            }
+                            (Value::String(l), Value::String(r)) => {
+                                self.stack
+                                    .push_unchecked(alloc_new_value(Value::Bool(l >= r)));
+                            }
+                            _ => {
+                                self.runtime_error(format!(
+                                    "Unsupported Binary operation: {} >= {}",
+                                    left.type_name(),
+                                    right.type_name()
+                                ));
+                                return;
+                            }
+                        }
+                    }
+
+                    // Invalid
+                    _ => {
+                        self.runtime_error(format!("Unknown bytecode: {}", bc));
                         return;
                     }
-                }
-
-                LOAD_LOCAL => {
-                    let index = self.read_bytecode();
-                    self.stack
-                        .push(self.stack.get(index as usize).unwrap().clone());
-                }
-
-                MAKE_ARRAY => {
-                    let length = self.read_bytecode() as usize;
-                    let mut array = Vec::with_capacity(length);
-                    for _ in 0..length {
-                        array.push(GcCell::new(self.stack.pop().unwrap()));
-                    }
-                    unsafe {
-                        self.stack.push_unchecked(Value::Array(array));
-                    }
-                }
-
-                JUMP_IF_FALSE => {
-                    let address = self.read_bytecode();
-                    if !self.stack.pop().unwrap().is_truthy() {
-                        self.pc = address as usize;
-                    }
-                }
-
-                JUMP_IF_FALSE_NO_POP => {
-                    let address = self.read_bytecode();
-                    if !self.stack.last().unwrap().is_truthy() {
-                        self.pc = address as usize;
-                    }
-                }
-
-                JUMP => {
-                    let address = self.read_bytecode();
-                    self.pc = address as usize;
-                }
-
-                DEBUG_PRINT => {
-                    let value = self.stack.pop().unwrap();
-                    println!("{}", value.debug_format());
-                }
-
-                // Prefix operators
-                UNARY_NEG => {
-                    let value = self.stack.pop().unwrap();
-                    match value {
-                        Value::Bool(_) => {
-                            self.runtime_error(
-                                "Unsupported Unary operation: -bool (Hint: Use !bool instead)"
-                                    .to_string(),
-                            );
-                            return;
-                        }
-                        Value::Int(i) => {
-                            unsafe {
-                                // We just popped an element, so there should be an empty space on the stack.
-                                self.stack.push_unchecked(Value::Int(i.saturating_neg()));
-                            }
-                        }
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Unary operation: -{}",
-                                value.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                UNARY_NOT => {
-                    let value = self.stack.pop().unwrap();
-                    unsafe {
-                        self.stack.push_unchecked(Value::Bool(!value.is_truthy()));
-                    }
-                }
-
-                // Infix operators
-                BINARY_ADD => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Int(l.wrapping_add(*r)));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} + {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_SUB => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Int(l.wrapping_sub(*r)));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} - {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_MUL => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Int(l.wrapping_mul(*r)));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} * {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_DIV => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => {
-                            if *r == 0 {
-                                self.runtime_error(format!(
-                                    "Division by zero: {} / 0",
-                                    left.debug_format()
-                                ));
-                                return;
-                            }
-                            unsafe {
-                                self.stack.push_unchecked(Value::Int(l.wrapping_div(*r)));
-                            }
-                        }
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} / {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_MOD => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => {
-                            if *r == 0 {
-                                self.runtime_error(format!(
-                                    "Modulo by zero: {} % 0",
-                                    left.debug_format()
-                                ));
-                                return;
-                            }
-                            unsafe {
-                                self.stack.push_unchecked(Value::Int(l.wrapping_rem(*r)));
-                            }
-                        }
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} % {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_EQ => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    unsafe {
-                        self.stack.push_unchecked(Value::Bool(left == right));
-                    }
-                }
-
-                BINARY_NE => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    unsafe {
-                        self.stack.push_unchecked(Value::Bool(left != right));
-                    }
-                }
-
-                BINARY_LT => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(*l < *r));
-                        },
-                        (Value::String(l), Value::String(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(l < r));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} < {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_LE => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(*l <= *r));
-                        },
-                        (Value::String(l), Value::String(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(l <= r));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} <= {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_GT => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(*l > *r));
-                        },
-                        (Value::String(l), Value::String(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(l > r));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} > {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                BINARY_GE => {
-                    let right = self.stack.pop().unwrap();
-                    let left = self.stack.pop().unwrap();
-                    match (&left, &right) {
-                        (Value::Int(l), Value::Int(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(*l >= *r));
-                        },
-                        (Value::String(l), Value::String(r)) => unsafe {
-                            self.stack.push_unchecked(Value::Bool(l >= r));
-                        },
-                        _ => {
-                            self.runtime_error(format!(
-                                "Unsupported Binary operation: {} >= {}",
-                                left.type_name(),
-                                right.type_name()
-                            ));
-                            return;
-                        }
-                    }
-                }
-
-                // Invalid
-                _ => {
-                    self.runtime_error(format!("Unknown bytecode: {}", bc));
-                    return;
                 }
             }
         }

@@ -55,9 +55,9 @@ impl Repl {
                 }
 
                 if let Some(lp) = &self.vm.last_popped {
-                    if let value::Value::Null = lp {
+                    if let value::Value::Null = unsafe { &**lp } {
                     } else {
-                        println!("#>> {}", lp.debug_format());
+                        println!("#>> {}", unsafe { &**lp }.debug_format());
                     }
                 }
             } else if let Err(e) = ast_ {

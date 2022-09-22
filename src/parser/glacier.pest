@@ -50,7 +50,7 @@ suffix = {
 false_expr = { "false" }
 true_expr = { "true" }
 
-term = _{ string_literal | integer | false_expr | true_expr | identifier | "(" ~ expression ~ ")" }
+term = _{ string_literal | integer | false_expr | true_expr | identifier | array | "(" ~ expression ~ ")" }
 
 prefix = { prefix_operators+ ~ expression_inner }
 
@@ -59,7 +59,7 @@ assign = { identifier ~ "=" ~ expression }
 array = { "[" ~ NEWLINE* ~ (expression ~ NEWLINE* ~ ","? ~ NEWLINE*)* ~ "]" }
 
 // condition_ifelse must be before condition_if
-expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix | prefix | array | term }
+expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix | prefix | term }
 
 add = { "+" }
 sub = { "-" }

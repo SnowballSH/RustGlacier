@@ -75,6 +75,11 @@ bytecodes! {
     // Jumps to address
     JUMP;
 
+    // GET
+    // Stack: [a, b] -> [c]
+    // Pushes c = a[b]
+    GET;
+
     // UNARY_NEG
     // Stack: [a] -> [-a]
     // Negates a
@@ -151,6 +156,7 @@ pub fn bytecode_name(bytecode: Byte) -> &'static str {
         JUMP_IF_FALSE_NO_POP => "JUMP_IF_FALSE_NO_POP",
         JUMP => "JUMP",
         DEBUG_PRINT => "DEBUG_PRINT",
+        GET => "GET",
         UNARY_NEG => "UNARY_NEG",
         UNARY_NOT => "UNARY_NOT",
         BINARY_ADD => "BINARY_ADD",

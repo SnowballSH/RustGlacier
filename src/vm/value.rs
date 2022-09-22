@@ -1,7 +1,7 @@
-use gc::{Finalize, Gc, GcCell, Trace};
+use gc::{Finalize, Gc, GcCell, GcCellRefMut, Trace};
 
 #[repr(C)]
-#[derive(Finalize, Trace, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     Float(f64),
     Int(i64),
@@ -9,7 +9,7 @@ pub enum Value {
     Bool(bool),
     Null,
 
-    Array(Vec<GcCell<Value>>),
+    Array(Vec<*mut Value>),
 }
 
 impl Value {
@@ -24,7 +24,7 @@ impl Value {
             Value::Array(a) => format!(
                 "[{}]",
                 a.iter()
-                    .map(|v| v.borrow().debug_format())
+                    .map(|v| unsafe { &**v }.debug_format())
                     .collect::<Vec<_>>()
                     .join(", ")
             ),
@@ -52,6 +52,31 @@ impl Value {
             Value::Null => false,
 
             Value::Array(a) => !a.is_empty(),
+        }
+    }
+
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn get_element(&self, index: *mut Value) -> Result<*mut Value, String> {
+        unsafe {
+            match self {
+                Value::Array(a) => {
+                    if let Value::Int(i) = *index {
+                        if i < 0 {
+                            Err(format!("Negative index not supported: {}", i))
+                        } else if let Some(v) = a.get(i as usize) {
+                            Ok(*v)
+                        } else {
+                            Err(format!("Index out of range: {}", i))
+                        }
+                    } else {
+                        Err(format!(
+                            "Array index must be an integer, not {}",
+                            (*index).type_name()
+                        ))
+                    }
+                }
+                _ => Err(format!("Cannot get element from type {}", self.type_name())),
+            }
         }
     }
 }
