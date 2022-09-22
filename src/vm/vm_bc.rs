@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use arrayvec::ArrayVec;
-use gc::GcCell;
 use pest::Span;
 
 use crate::ast::*;
@@ -252,7 +251,7 @@ impl VM {
             Expression::String_(s) => {
                 if self
                     .constants
-                    .try_push(Value::String(GcCell::new(s.value.to_string())))
+                    .try_push(Value::String(s.value.to_string()))
                     .is_err()
                 {
                     self.compile_error(
