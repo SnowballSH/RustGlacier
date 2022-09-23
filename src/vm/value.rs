@@ -1,3 +1,5 @@
+use crate::memory::alloc_new_value;
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -38,6 +40,13 @@ impl Value {
             Value::Null => "null",
 
             Value::Array(_) => "array",
+        }
+    }
+
+    pub fn shallow_copy(&mut self) -> *mut Value {
+        match self {
+            Value::Array(_) => self as *mut Value,
+            _ => alloc_new_value(self.clone()),
         }
     }
 

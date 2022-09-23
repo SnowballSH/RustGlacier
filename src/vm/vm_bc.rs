@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Write;
 
 use arrayvec::ArrayVec;
-use pest::Span;
 
 use crate::ast::*;
 use crate::value::*;
@@ -33,8 +32,8 @@ pub struct VM {
     pub source: String,
 
     pub bytecodes: Vec<Byte>,
-    // (Line, Start, End)
-    pub lines: Vec<(usize, usize, usize)>,
+    // (Start, End)
+    pub lines: Vec<AstSpan>,
     pub pc: usize,
 
     pub constants: ArrayVec<Value, CONSTANT_SIZE>,
@@ -94,8 +93,8 @@ impl VM {
     }
 
     #[inline(always)]
-    fn span_to_line(&self, span: &Span) -> usize {
-        self.source[..span.start()].matches('\n').count()
+    fn span_to_line(&self, span: AstSpan) -> usize {
+        self.source[..span.start].matches('\n').count()
     }
 
     fn get_nl_pos(&self, line: usize) -> usize {
@@ -114,7 +113,7 @@ impl VM {
         unreachable!();
     }
 
-    pub fn compile_error(&mut self, span: &Span, message: String) {
+    pub fn compile_error(&mut self, span: AstSpan, message: String) {
         let line = self.span_to_line(span);
         let line_str = &self.source.split('\n').nth(line).unwrap();
         let start = self.get_nl_pos(line);
@@ -123,22 +122,23 @@ impl VM {
             "At Line {}:\n{}\n{}{}\nCompile-time Error:\n    {}",
             line + 1,
             line_str,
-            " ".repeat(span.start() - start),
-            "^".repeat(span.end() - span.start()),
+            " ".repeat(span.start - start),
+            "^".repeat(span.end - span.start),
             message
         ));
     }
 
     pub fn runtime_error(&mut self, message: String) {
-        let line = self.lines[self.pc].0;
+        let span = self.lines[self.pc];
+        let line = self.span_to_line(span);
         let line_str = &self.source.split('\n').nth(line).unwrap();
         let start = self.get_nl_pos(line);
         self.error = Some(format!(
             "At Line {}:\n{}\n{}{}\nRuntime Error:\n    {}",
             line + 1,
             line_str,
-            " ".repeat(self.lines[self.pc].1 - start),
-            "^".repeat(self.lines[self.pc].2 - self.lines[self.pc].1),
+            " ".repeat(span.start - start),
+            "^".repeat(span.end - span.start),
             message
         ));
     }
@@ -146,10 +146,12 @@ impl VM {
 
 // Compilation
 impl VM {
-    fn push_bytecode(&mut self, bytecode: Byte, span: &Span) {
+    fn push_bytecode(&mut self, bytecode: Byte, span: AstSpan) {
         self.bytecodes.push(bytecode);
-        self.lines
-            .push((self.span_to_line(span), span.start(), span.end()));
+        self.lines.push(AstSpan {
+            start: span.start,
+            end: span.end,
+        });
     }
 
     pub fn begin_scope(&mut self) {
@@ -208,39 +210,39 @@ impl VM {
                 if !self.compile_expression(&e.expr) {
                     return false;
                 };
-                self.push_bytecode(POP_LAST, &e.pos);
+                self.push_bytecode(POP_LAST, e.pos);
             }
             Statement::DebugPrint(e) => {
                 if !self.compile_expression(&e.expr) {
                     return false;
                 };
-                self.push_bytecode(DEBUG_PRINT, &e.pos);
+                self.push_bytecode(DEBUG_PRINT, e.pos);
             }
             Statement::Break(b) => {
-                self.push_bytecode(JUMP, &b.pos);
+                self.push_bytecode(JUMP, b.pos);
                 if let Some(patches) = self.break_jump_patches.last_mut() {
                     patches.push(self.bytecodes.len());
                 } else {
                     self.compile_error(
-                        &b.pos,
+                        b.pos,
                         "Break statement outside of loop is not allowed".to_string(),
                     );
                     return false;
                 }
-                self.push_bytecode(0, &b.pos);
+                self.push_bytecode(0, b.pos);
             }
             Statement::Next(b) => {
-                self.push_bytecode(JUMP, &b.pos);
+                self.push_bytecode(JUMP, b.pos);
                 if let Some(patches) = self.next_jump_patches.last_mut() {
                     patches.push(self.bytecodes.len());
                 } else {
                     self.compile_error(
-                        &b.pos,
+                        b.pos,
                         "Next statement outside of loop is not allowed".to_string(),
                     );
                     return false;
                 }
-                self.push_bytecode(0, &b.pos);
+                self.push_bytecode(0, b.pos);
             }
         }
         true
@@ -255,14 +257,14 @@ impl VM {
                     .is_err()
                 {
                     self.compile_error(
-                        &s.pos,
+                        s.pos,
                         format!("Constant exceeds limit of {}", CONSTANT_SIZE),
                     );
                     return false;
                 }
 
-                self.push_bytecode(LOAD_CONST, &s.pos);
-                self.push_bytecode(self.constants.len() as Byte - 1, &s.pos);
+                self.push_bytecode(LOAD_CONST, s.pos);
+                self.push_bytecode(self.constants.len() as Byte - 1, s.pos);
             }
 
             Expression::Int(num) => {
@@ -277,7 +279,7 @@ impl VM {
                     .is_err()
                 {
                     self.compile_error(
-                        &num.pos,
+                        num.pos,
                         format!("Constant exceeds limit of {}", CONSTANT_SIZE),
                     );
                     return false;
@@ -287,8 +289,8 @@ impl VM {
                         self.constant_hash_small_int[num.value as usize] = Some(index);
                     }
                 }
-                self.push_bytecode(LOAD_CONST, &num.pos);
-                self.push_bytecode(index, &num.pos);
+                self.push_bytecode(LOAD_CONST, num.pos);
+                self.push_bytecode(index, num.pos);
             }
 
             Expression::Bool(b) => {
@@ -297,25 +299,25 @@ impl VM {
                 } else {
                     BOOL_FALSE_CONSTANT
                 };
-                self.push_bytecode(LOAD_CONST, &b.pos);
-                self.push_bytecode(index as Byte, &b.pos);
+                self.push_bytecode(LOAD_CONST, b.pos);
+                self.push_bytecode(index as Byte, b.pos);
             }
 
             Expression::Array(a) => {
                 for x in a.values.iter().rev() {
                     self.compile_expression(x);
                 }
-                self.push_bytecode(MAKE_ARRAY, &a.pos);
-                self.push_bytecode(a.values.len() as Byte, &a.pos);
+                self.push_bytecode(MAKE_ARRAY, a.pos);
+                self.push_bytecode(a.values.len() as Byte, a.pos);
             }
 
             Expression::GetVar(get) => {
                 let res = self.resolve_local(get.name.to_string());
                 if let Some(index) = res {
-                    self.push_bytecode(LOAD_LOCAL, &get.pos);
-                    self.push_bytecode(index as Byte, &get.pos);
+                    self.push_bytecode(LOAD_LOCAL, get.pos);
+                    self.push_bytecode(index as Byte, get.pos);
                 } else {
-                    self.compile_error(&get.pos, format!("Variable '{}' is not defined", get.name));
+                    self.compile_error(get.pos, format!("Variable '{}' is not defined", get.name));
                     return false;
                 }
             }
@@ -327,10 +329,10 @@ impl VM {
                     return false;
                 }
 
-                self.push_bytecode(REPLACE, &var.pos);
-                self.push_bytecode(replace as Byte, &var.pos);
-                self.push_bytecode(LOAD_LOCAL, &var.pos);
-                self.push_bytecode(replace as Byte, &var.pos);
+                self.push_bytecode(REPLACE, var.pos);
+                self.push_bytecode(replace as Byte, var.pos);
+                self.push_bytecode(LOAD_LOCAL, var.pos);
+                self.push_bytecode(replace as Byte, var.pos);
             }
 
             Expression::Infix(infix) => {
@@ -340,12 +342,12 @@ impl VM {
                             return false;
                         }
 
-                        self.push_bytecode(JUMP_IF_FALSE_NO_POP, &infix.pos);
+                        self.push_bytecode(JUMP_IF_FALSE_NO_POP, infix.pos);
                         let patch_loc = self.bytecodes.len();
-                        self.push_bytecode(0, &infix.pos);
+                        self.push_bytecode(0, infix.pos);
 
                         // pop left operand
-                        self.push_bytecode(POP_LAST, &infix.pos);
+                        self.push_bytecode(POP_LAST, infix.pos);
 
                         if !self.compile_expression(&infix.right) {
                             return false;
@@ -357,17 +359,17 @@ impl VM {
                             return false;
                         }
 
-                        self.push_bytecode(JUMP_IF_FALSE_NO_POP, &infix.pos);
+                        self.push_bytecode(JUMP_IF_FALSE_NO_POP, infix.pos);
                         let patch_loc_1 = self.bytecodes.len();
-                        self.push_bytecode(0, &infix.pos);
+                        self.push_bytecode(0, infix.pos);
 
-                        self.push_bytecode(JUMP, &infix.pos);
+                        self.push_bytecode(JUMP, infix.pos);
                         let patch_loc_2 = self.bytecodes.len();
-                        self.push_bytecode(0, &infix.pos);
+                        self.push_bytecode(0, infix.pos);
 
                         self.bytecodes[patch_loc_1] = self.bytecodes.len() as Byte;
 
-                        self.push_bytecode(POP_LAST, &infix.pos);
+                        self.push_bytecode(POP_LAST, infix.pos);
                         if !self.compile_expression(&infix.right) {
                             return false;
                         }
@@ -383,43 +385,43 @@ impl VM {
                         }
                         match infix.operator {
                             "+" => {
-                                self.push_bytecode(BINARY_ADD, &infix.pos);
+                                self.push_bytecode(BINARY_ADD, infix.pos);
                             }
                             "-" => {
-                                self.push_bytecode(BINARY_SUB, &infix.pos);
+                                self.push_bytecode(BINARY_SUB, infix.pos);
                             }
                             "*" => {
-                                self.push_bytecode(BINARY_MUL, &infix.pos);
+                                self.push_bytecode(BINARY_MUL, infix.pos);
                             }
                             "/" => {
-                                self.push_bytecode(BINARY_DIV, &infix.pos);
+                                self.push_bytecode(BINARY_DIV, infix.pos);
                             }
                             "%" => {
-                                self.push_bytecode(BINARY_MOD, &infix.pos);
+                                self.push_bytecode(BINARY_MOD, infix.pos);
                             }
 
                             "==" => {
-                                self.push_bytecode(BINARY_EQ, &infix.pos);
+                                self.push_bytecode(BINARY_EQ, infix.pos);
                             }
                             "!=" => {
-                                self.push_bytecode(BINARY_NE, &infix.pos);
+                                self.push_bytecode(BINARY_NE, infix.pos);
                             }
                             "<" => {
-                                self.push_bytecode(BINARY_LT, &infix.pos);
+                                self.push_bytecode(BINARY_LT, infix.pos);
                             }
                             "<=" => {
-                                self.push_bytecode(BINARY_LE, &infix.pos);
+                                self.push_bytecode(BINARY_LE, infix.pos);
                             }
                             ">" => {
-                                self.push_bytecode(BINARY_GT, &infix.pos);
+                                self.push_bytecode(BINARY_GT, infix.pos);
                             }
                             ">=" => {
-                                self.push_bytecode(BINARY_GE, &infix.pos);
+                                self.push_bytecode(BINARY_GE, infix.pos);
                             }
 
                             _ => {
                                 self.compile_error(
-                                    &infix.pos,
+                                    infix.pos,
                                     format!("Unsupported Operand: {}", infix.operator),
                                 );
                                 return false;
@@ -434,17 +436,17 @@ impl VM {
                     if !self.compile_expression(&prefix.right) {
                         return false;
                     }
-                    self.push_bytecode(UNARY_NEG, &prefix.pos);
+                    self.push_bytecode(UNARY_NEG, prefix.pos);
                 }
                 "!" => {
                     if !self.compile_expression(&prefix.right) {
                         return false;
                     }
-                    self.push_bytecode(UNARY_NOT, &prefix.pos);
+                    self.push_bytecode(UNARY_NOT, prefix.pos);
                 }
                 _ => {
                     self.compile_error(
-                        &prefix.pos,
+                        prefix.pos,
                         format!("Unsupported Operand: {}", prefix.operator),
                     );
                     return false;
@@ -460,7 +462,11 @@ impl VM {
                     return false;
                 }
 
-                self.push_bytecode(GET, &indexing.pos);
+                self.push_bytecode(GET, indexing.pos);
+            }
+
+            Expression::PointerAssign(ptr) => {
+                todo!()
             }
 
             Expression::If(iff) => {
@@ -470,9 +476,9 @@ impl VM {
                 }
 
                 // Jump to else if false
-                self.push_bytecode(JUMP_IF_FALSE, &iff.pos);
+                self.push_bytecode(JUMP_IF_FALSE, iff.pos);
                 let patch_loc = self.bytecodes.len();
-                self.push_bytecode(0, &iff.pos);
+                self.push_bytecode(0, iff.pos);
 
                 if !iff.body.is_empty() {
                     // Compile then block
@@ -487,25 +493,25 @@ impl VM {
                         self.bytecodes.pop();
                         self.lines.pop();
                     } else {
-                        self.push_bytecode(LOAD_CONST, &iff.pos);
-                        self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                        self.push_bytecode(LOAD_CONST, iff.pos);
+                        self.push_bytecode(NULL_CONSTANT as Byte, iff.pos);
                     }
                 } else {
-                    self.push_bytecode(LOAD_CONST, &iff.pos);
-                    self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                    self.push_bytecode(LOAD_CONST, iff.pos);
+                    self.push_bytecode(NULL_CONSTANT as Byte, iff.pos);
                 }
 
                 // Jump to end
-                self.push_bytecode(JUMP, &iff.pos);
+                self.push_bytecode(JUMP, iff.pos);
                 let patch_loc_2 = self.bytecodes.len();
-                self.push_bytecode(0, &iff.pos);
+                self.push_bytecode(0, iff.pos);
 
                 // Patch jump 1
                 self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
 
                 if iff.other.is_empty() {
-                    self.push_bytecode(LOAD_CONST, &iff.pos);
-                    self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                    self.push_bytecode(LOAD_CONST, iff.pos);
+                    self.push_bytecode(NULL_CONSTANT as Byte, iff.pos);
 
                     self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
                 } else {
@@ -522,12 +528,12 @@ impl VM {
                             self.bytecodes.pop();
                             self.lines.pop();
                         } else {
-                            self.push_bytecode(LOAD_CONST, &iff.pos);
-                            self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                            self.push_bytecode(LOAD_CONST, iff.pos);
+                            self.push_bytecode(NULL_CONSTANT as Byte, iff.pos);
                         }
                     } else {
-                        self.push_bytecode(LOAD_CONST, &iff.pos);
-                        self.push_bytecode(NULL_CONSTANT as Byte, &iff.pos);
+                        self.push_bytecode(LOAD_CONST, iff.pos);
+                        self.push_bytecode(NULL_CONSTANT as Byte, iff.pos);
                     }
 
                     self.bytecodes[patch_loc_2] = self.bytecodes.len() as Byte;
@@ -544,9 +550,9 @@ impl VM {
                     return false;
                 }
 
-                self.push_bytecode(JUMP_IF_FALSE, &w.pos);
+                self.push_bytecode(JUMP_IF_FALSE, w.pos);
                 let patch_loc = self.bytecodes.len();
-                self.push_bytecode(0, &w.pos);
+                self.push_bytecode(0, w.pos);
 
                 self.begin_scope();
                 if !self.compile_program(&w.body) {
@@ -554,8 +560,8 @@ impl VM {
                 }
                 self.end_scope();
 
-                self.push_bytecode(JUMP, &w.pos);
-                self.push_bytecode(loop_start as Byte, &w.pos);
+                self.push_bytecode(JUMP, w.pos);
+                self.push_bytecode(loop_start as Byte, w.pos);
 
                 self.bytecodes[patch_loc] = self.bytecodes.len() as Byte;
 
@@ -569,8 +575,8 @@ impl VM {
                     self.bytecodes[i] = loop_start as Byte;
                 }
 
-                self.push_bytecode(LOAD_CONST, &w.pos);
-                self.push_bytecode(NULL_CONSTANT as Byte, &w.pos);
+                self.push_bytecode(LOAD_CONST, w.pos);
+                self.push_bytecode(NULL_CONSTANT as Byte, w.pos);
             }
 
             Expression::Do(d) => {
@@ -583,8 +589,8 @@ impl VM {
                     self.bytecodes.pop();
                     self.lines.pop();
                 } else {
-                    self.push_bytecode(LOAD_CONST, &d.pos);
-                    self.push_bytecode(NULL_CONSTANT as Byte, &d.pos);
+                    self.push_bytecode(LOAD_CONST, d.pos);
+                    self.push_bytecode(NULL_CONSTANT as Byte, d.pos);
                 }
             }
         }
@@ -697,7 +703,7 @@ impl VM {
                             self.stack
                                 .push(&mut self.constants[NULL_CONSTANT] as *mut Value);
                         }
-                        self.stack[index as usize] = v;
+                        self.stack[index as usize] = (*v).shallow_copy();
                     }
 
                     LOAD_CONST => {

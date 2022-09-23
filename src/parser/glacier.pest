@@ -47,6 +47,10 @@ suffix = {
     term ~ (indexing)+
 }
 
+suffix_assign = {
+    term ~ (indexing)+ ~ "=" ~ expression
+}
+
 false_expr = { "false" }
 true_expr = { "true" }
 

@@ -36,7 +36,7 @@ fn infix<'a>(lhs: Expression<'a>, op: Pair<'a, Rule>, rhs: Expression<'a>) -> Ex
         left: lhs,
         operator: op.as_str(),
         right: rhs,
-        pos: op.as_span(),
+        pos: op.as_span().into(),
     }))
 }
 
@@ -44,34 +44,34 @@ fn others(pair: Pair<Rule>) -> Expression {
     match pair.as_rule() {
         Rule::string_literal => Expression::String_(String_ {
             value: &pair.as_str()[1..pair.as_str().len() - 1],
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
 
         Rule::integer => Expression::Int(Integer {
             value: pair.as_str().parse().unwrap(),
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
 
         Rule::array => {
             let inner = pair.clone().into_inner();
             Expression::Array(Array {
                 values: inner.map(parse_expression).collect(),
-                pos: pair.as_span(),
+                pos: pair.as_span().into(),
             })
         }
 
         Rule::false_expr => Expression::Bool(Bool {
             value: false,
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
         Rule::true_expr => Expression::Bool(Bool {
             value: true,
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
 
         Rule::identifier => Expression::GetVar(GetVar {
             name: pair.as_str(),
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
 
         Rule::assign => {
@@ -81,7 +81,7 @@ fn others(pair: Pair<Rule>) -> Expression {
             Expression::SetVar(Box::new(SetVar {
                 name,
                 value: parse_expression(res),
-                pos: pair.as_span(),
+                pos: pair.as_span().into(),
             }))
         }
 
@@ -93,7 +93,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                 cond: parse_expression(cond),
                 body: parse_program(res.into_inner()),
                 other: vec![],
-                pos: pair.as_span(),
+                pos: pair.as_span().into(),
             }))
         }
 
@@ -106,7 +106,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                 cond: parse_expression(cond),
                 body: parse_program(res.into_inner()),
                 other: parse_program(other.into_inner()),
-                pos: pair.as_span(),
+                pos: pair.as_span().into(),
             }))
         }
 
@@ -117,7 +117,7 @@ fn others(pair: Pair<Rule>) -> Expression {
             Expression::While(Box::new(While {
                 cond: parse_expression(cond),
                 body: parse_program(res.into_inner()),
-                pos: pair.as_span(),
+                pos: pair.as_span().into(),
             }))
         }
 
@@ -126,7 +126,7 @@ fn others(pair: Pair<Rule>) -> Expression {
             let res = inner.next().unwrap();
             Expression::Do(Box::new(Do {
                 body: parse_program(res.into_inner()),
-                pos: pair.as_span(),
+                pos: pair.as_span().into(),
             }))
         }
 
@@ -139,7 +139,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                 right = Expression::Prefix(Box::new(Prefix {
                     operator: x.as_str(),
                     right,
-                    pos: pair.as_span(),
+                    pos: pair.as_span().into(),
                 }))
             }
 
@@ -155,7 +155,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                 Rule::indexing => Expression::Index(Box::new(Index {
                     callee: parse_expression(res),
                     index: parse_expression(n.into_inner().next().unwrap()),
-                    pos: pair.as_span(),
+                    pos: pair.as_span().into(),
                 })),
                 _ => unreachable!(),
             };
@@ -165,7 +165,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                     Rule::indexing => Expression::Index(Box::new(Index {
                         callee,
                         index: parse_expression(xx.into_inner().next().unwrap()),
-                        pos: pair.as_span(),
+                        pos: pair.as_span().into(),
                     })),
                     _ => unreachable!(),
                 }
@@ -201,7 +201,7 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
     match pair.as_rule() {
         Rule::expression_stmt => {
             let p = pair.into_inner().next().unwrap();
-            let s = p.clone().as_span();
+            let s = p.clone().as_span().into();
             Statement::ExprStmt(ExprStmt {
                 expr: parse_expression(p),
                 pos: s,
@@ -209,17 +209,17 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
         }
         Rule::debug_print => {
             let p = pair.into_inner().next().unwrap();
-            let s = p.clone().as_span();
+            let s = p.clone().as_span().into();
             Statement::DebugPrint(DebugPrint {
                 expr: parse_expression(p),
                 pos: s,
             })
         }
         Rule::break_stmt => Statement::Break(Break {
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
         Rule::next_stmt => Statement::Next(Next {
-            pos: pair.as_span(),
+            pos: pair.as_span().into(),
         }),
         _ => unreachable!(),
     }

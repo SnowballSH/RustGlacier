@@ -1,7 +1,7 @@
+use lazy_static::lazy_static;
 use std::alloc::{alloc, Layout};
 use std::collections::hash_set::HashSet;
 use std::sync::Mutex;
-use lazy_static::lazy_static;
 
 use crate::vm::value::Value;
 
