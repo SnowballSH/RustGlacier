@@ -4,7 +4,7 @@ TERMINATOR = _{ NEWLINE | ";" }
 WHITESPACE = _{ " " | "\t" }
 COMMENT = _{ ("#" ~ (!NEWLINE ~ ANY)*) }
 
-integer = @{ ASCII_DIGIT{1, 18} }
+integer = @{ ASCII_DIGIT{1, 19} }
 idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 identifier = @{ !(keyword ~ !(ASCII_ALPHANUMERIC)) ~ idt }
 keyword = @{
