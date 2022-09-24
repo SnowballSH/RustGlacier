@@ -37,8 +37,13 @@ bytecodes! {
 
     // REPLACE address
     // Stack: [addr, ..., a] -> [a, ...]
-    // Pops a and puts it at address
+    // Pops a and puts its shallow copy at address
     REPLACE;
+
+    // SET_IN_PLACE
+    // Stack: [a, b] -> [a]
+    // Pops b and puts its shallow copy in a
+    SET_IN_PLACE;
 
     // LOAD_CONST address
     // Stack: [] -> [value]
@@ -149,6 +154,7 @@ pub fn bytecode_name(bytecode: Byte) -> &'static str {
         NOOP => "NOOP",
         POP_LAST => "POP_LAST",
         REPLACE => "REPLACE",
+        SET_IN_PLACE => "SET_IN_PLACE",
         LOAD_CONST => "LOAD_CONST",
         LOAD_LOCAL => "LOAD_LOCAL",
         MAKE_ARRAY => "MAKE_ARRAY",

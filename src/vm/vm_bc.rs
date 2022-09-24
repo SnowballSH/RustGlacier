@@ -466,7 +466,15 @@ impl VM {
             }
 
             Expression::PointerAssign(ptr) => {
-                todo!()
+                if !self.compile_expression(&ptr.ptr) {
+                    return false;
+                }
+
+                if !self.compile_expression(&ptr.value) {
+                    return false;
+                }
+
+                self.push_bytecode(SET_IN_PLACE, ptr.pos);
             }
 
             Expression::If(iff) => {
@@ -704,6 +712,13 @@ impl VM {
                                 .push(&mut self.constants[NULL_CONSTANT] as *mut Value);
                         }
                         self.stack[index as usize] = (*v).shallow_copy();
+                    }
+
+                    SET_IN_PLACE => {
+                        let v = self.stack.pop().unwrap();
+                        let p = self.stack.pop().unwrap();
+                        (*v).regular_copy_to(p);
+                        self.stack.push(v);
                     }
 
                     LOAD_CONST => {

@@ -43,6 +43,14 @@ impl Value {
         }
     }
 
+    pub fn regular_copy_to(&mut self, dest: *mut Value) -> *mut Value {
+        unsafe {
+            *dest = self.clone();
+        }
+
+        dest
+    }
+
     pub fn shallow_copy(&mut self) -> *mut Value {
         match self {
             Value::Array(_) => self as *mut Value,

@@ -173,6 +173,44 @@ fn others(pair: Pair<Rule>) -> Expression {
 
             callee
         }
+
+        Rule::suffix_assign => {
+            let mut inner = pair.clone().into_inner();
+            let res = inner.next().unwrap();
+            let mut args_iter = inner.peekable();
+
+            let n = args_iter.next().unwrap();
+            let mut callee = match n.as_rule() {
+                Rule::indexing => Expression::Index(Box::new(Index {
+                    callee: parse_expression(res),
+                    index: parse_expression(n.into_inner().next().unwrap()),
+                    pos: pair.as_span().into(),
+                })),
+                _ => unreachable!(),
+            };
+
+            while let Some(xx) = args_iter.next() {
+                if args_iter.peek().is_some() {
+                    callee = match xx.as_rule() {
+                        Rule::indexing => Expression::Index(Box::new(Index {
+                            callee,
+                            index: parse_expression(xx.into_inner().next().unwrap()),
+                            pos: pair.as_span().into(),
+                        })),
+                        _ => unreachable!(),
+                    }
+                } else {
+                    return Expression::PointerAssign(Box::new(PointerAssign {
+                        ptr: callee,
+                        value: parse_expression(xx.into_inner().next().unwrap()),
+                        pos: pair.as_span().into(),
+                    }));
+                }
+            }
+
+            unreachable!()
+        }
+
         Rule::expression => climb(pair),
         _ => {
             dbg!(pair.as_rule());
