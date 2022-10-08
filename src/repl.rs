@@ -33,6 +33,8 @@ impl Repl {
 
             let ast_ = parse(input.as_str());
             if let Ok(ast_) = ast_ {
+                // dbg!(&ast_);
+
                 self.vm.compile(&ast_);
 
                 if let Some(e) = &self.vm.error {

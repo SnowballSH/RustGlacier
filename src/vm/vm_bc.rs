@@ -244,6 +244,17 @@ impl VM {
                 }
                 self.push_bytecode(0, b.pos);
             }
+            Statement::PointerAssign(ptr) => {
+                if !self.compile_expression(&ptr.ptr) {
+                    return false;
+                }
+
+                if !self.compile_expression(&ptr.value) {
+                    return false;
+                }
+
+                self.push_bytecode(SET_IN_PLACE, ptr.pos);
+            }
         }
         true
     }
@@ -463,18 +474,6 @@ impl VM {
                 }
 
                 self.push_bytecode(GET, indexing.pos);
-            }
-
-            Expression::PointerAssign(ptr) => {
-                if !self.compile_expression(&ptr.ptr) {
-                    return false;
-                }
-
-                if !self.compile_expression(&ptr.value) {
-                    return false;
-                }
-
-                self.push_bytecode(SET_IN_PLACE, ptr.pos);
             }
 
             Expression::If(iff) => {
@@ -939,14 +938,14 @@ impl VM {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
                         self.stack
-                            .push_unchecked(alloc_new_value(Value::Bool(left == right)));
+                            .push_unchecked(alloc_new_value(Value::Bool(left.is_equal(right))));
                     }
 
                     BINARY_NE => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
                         self.stack
-                            .push_unchecked(alloc_new_value(Value::Bool(left != right)));
+                            .push_unchecked(alloc_new_value(Value::Bool(!left.is_equal(right))));
                     }
 
                     BINARY_LT => {

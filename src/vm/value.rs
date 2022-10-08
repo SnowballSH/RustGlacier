@@ -1,3 +1,5 @@
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+
 use crate::memory::alloc_new_value;
 
 #[repr(C)]
@@ -70,7 +72,32 @@ impl Value {
         }
     }
 
-    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    pub fn is_equal(&self, other: &Value) -> bool {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => f1 == f2,
+            (Value::Int(i1), Value::Int(i2)) => i1 == i2,
+            (Value::String(s1), Value::String(s2)) => *s1 == *s2,
+            (Value::Bool(b1), Value::Bool(b2)) => b1 == b2,
+            (Value::Null, Value::Null) => true,
+
+            (Value::Array(a1), Value::Array(a2)) => {
+                if a1.len() != a2.len() {
+                    return false;
+                }
+
+                for (v1, v2) in a1.iter().zip(a2.iter()) {
+                    if !unsafe { &**v1 }.is_equal(unsafe { &**v2 }) {
+                        return false;
+                    }
+                }
+
+                true
+            }
+
+            _ => false,
+        }
+    }
+
     pub fn get_element(&self, index: *mut Value) -> Result<*mut Value, String> {
         unsafe {
             match self {
@@ -86,6 +113,22 @@ impl Value {
                     } else {
                         Err(format!(
                             "Array index must be an integer, not {}",
+                            (*index).type_name()
+                        ))
+                    }
+                }
+                Value::String(s) => {
+                    if let Value::Int(i) = *index {
+                        if i < 0 {
+                            Err(format!("Negative index not supported: {}", i))
+                        } else if let Some(c) = s.chars().nth(i as usize) {
+                            Ok(alloc_new_value(Value::String(c.to_string())))
+                        } else {
+                            Err(format!("Index out of range: {}", i))
+                        }
+                    } else {
+                        Err(format!(
+                            "String index must be an integer, not {}",
                             (*index).type_name()
                         ))
                     }

@@ -27,8 +27,6 @@ pub enum Expression<'a> {
     Prefix(Box<Prefix<'a>>),
     Index(Box<Index<'a>>),
 
-    PointerAssign(Box<PointerAssign<'a>>),
-
     If(Box<If<'a>>),
     While(Box<While<'a>>),
     Do(Box<Do<'a>>),
@@ -115,18 +113,12 @@ pub struct Index<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct PointerAssign<'a> {
-    pub ptr: Expression<'a>,
-    pub value: Expression<'a>,
-    pub pos: AstSpan,
-}
-
-#[derive(Debug, Clone)]
 pub enum Statement<'a> {
     ExprStmt(ExprStmt<'a>),
     DebugPrint(DebugPrint<'a>),
     Break(Break),
     Next(Next),
+    PointerAssign(Box<PointerAssign<'a>>),
 }
 
 #[derive(Debug, Clone)]
@@ -148,6 +140,13 @@ pub struct Break {
 
 #[derive(Debug, Clone)]
 pub struct Next {
+    pub pos: AstSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct PointerAssign<'a> {
+    pub ptr: Expression<'a>,
+    pub value: Expression<'a>,
     pub pos: AstSpan,
 }
 

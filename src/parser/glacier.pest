@@ -63,7 +63,7 @@ assign = { identifier ~ "=" ~ expression }
 array = { "[" ~ NEWLINE* ~ (expression ~ NEWLINE* ~ ","? ~ NEWLINE*)* ~ "]" }
 
 // condition_ifelse must be before condition_if
-expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix_assign | suffix | prefix | term }
+expression_inner = _{ while_loop | condition_ifelse | condition_if | do_block | assign | suffix | prefix | term }
 
 add = { "+" }
 sub = { "-" }
@@ -105,5 +105,6 @@ stmt = _{
     debug_print
     | break_stmt
     | next_stmt
+    | suffix_assign
     | expression_stmt
 }

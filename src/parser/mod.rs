@@ -174,43 +174,6 @@ fn others(pair: Pair<Rule>) -> Expression {
             callee
         }
 
-        Rule::suffix_assign => {
-            let mut inner = pair.clone().into_inner();
-            let res = inner.next().unwrap();
-            let mut args_iter = inner.peekable();
-
-            let n = args_iter.next().unwrap();
-            let mut callee = match n.as_rule() {
-                Rule::indexing => Expression::Index(Box::new(Index {
-                    callee: parse_expression(res),
-                    index: parse_expression(n.into_inner().next().unwrap()),
-                    pos: pair.as_span().into(),
-                })),
-                _ => unreachable!(),
-            };
-
-            while let Some(xx) = args_iter.next() {
-                if args_iter.peek().is_some() {
-                    callee = match xx.as_rule() {
-                        Rule::indexing => Expression::Index(Box::new(Index {
-                            callee,
-                            index: parse_expression(xx.into_inner().next().unwrap()),
-                            pos: pair.as_span().into(),
-                        })),
-                        _ => unreachable!(),
-                    }
-                } else {
-                    return Expression::PointerAssign(Box::new(PointerAssign {
-                        ptr: callee,
-                        value: parse_expression(xx.into_inner().next().unwrap()),
-                        pos: pair.as_span().into(),
-                    }));
-                }
-            }
-
-            unreachable!()
-        }
-
         Rule::expression => climb(pair),
         _ => {
             dbg!(pair.as_rule());
@@ -259,6 +222,44 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
         Rule::next_stmt => Statement::Next(Next {
             pos: pair.as_span().into(),
         }),
+
+        Rule::suffix_assign => {
+            let mut inner = pair.clone().into_inner();
+            let res = inner.next().unwrap();
+            let mut args_iter = inner.peekable();
+
+            let n = args_iter.next().unwrap();
+            let mut callee = match n.as_rule() {
+                Rule::indexing => Expression::Index(Box::new(Index {
+                    callee: parse_expression(res),
+                    index: parse_expression(n.into_inner().next().unwrap()),
+                    pos: pair.as_span().into(),
+                })),
+                _ => unreachable!(),
+            };
+
+            while let Some(xx) = args_iter.next() {
+                if args_iter.peek().is_some() {
+                    callee = match xx.as_rule() {
+                        Rule::indexing => Expression::Index(Box::new(Index {
+                            callee,
+                            index: parse_expression(xx.into_inner().next().unwrap()),
+                            pos: pair.as_span().into(),
+                        })),
+                        _ => unreachable!(),
+                    }
+                } else {
+                    return Statement::PointerAssign(Box::new(PointerAssign {
+                        ptr: callee,
+                        value: parse_expression(xx.into()),
+                        pos: pair.as_span().into(),
+                    }));
+                }
+            }
+
+            unreachable!()
+        }
+
         _ => unreachable!(),
     }
 }
@@ -271,7 +272,8 @@ fn parse_program(res: Pairs<Rule>) -> Program {
             | Rule::expression_stmt
             | Rule::debug_print
             | Rule::break_stmt
-            | Rule::next_stmt => ast.push(parse_statement(pair)),
+            | Rule::next_stmt
+            | Rule::suffix_assign => ast.push(parse_statement(pair)),
             _ => {}
         }
     }

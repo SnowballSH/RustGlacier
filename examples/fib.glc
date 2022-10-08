@@ -1,0 +1,33 @@
+# This script Computes the Nth fibonacci number modulo MOD in O(log N) time
+
+# Fib[N]
+N = 854441722044072015
+
+# Modulo
+MOD = 1000000007
+
+ans = [[1, 0], [0, 1]]
+m = [[1, 1], [1, 0]]
+res = [[0, 0], [0, 0]]
+
+while N > 0
+    if N % 2 == 1
+        res[0][0] = (ans[0][0] * m[0][0] + ans[0][1] * m[1][0]) % MOD
+        res[0][1] = (ans[0][0] * m[0][1] + ans[0][1] * m[1][1]) % MOD
+        res[1][0] = (ans[1][0] * m[0][0] + ans[1][1] * m[1][0]) % MOD
+        res[1][1] = (ans[1][1] * m[1][1] + ans[1][0] * m[0][1]) % MOD
+
+        ans[0][0] = res[0][0]; ans[0][1] = res[0][1]; ans[1][0] = res[1][0]; ans[1][1] = res[1][1]
+    end
+
+    res[0][0] = (m[0][0] * m[0][0] + m[0][1] * m[1][0]) % MOD
+    res[0][1] = (m[0][0] * m[0][1] + m[0][1] * m[1][1]) % MOD
+    res[1][0] = (m[1][0] * m[0][0] + m[1][1] * m[1][0]) % MOD
+    res[1][1] = (m[1][1] * m[1][1] + m[1][0] * m[0][1]) % MOD
+
+    m[0][0] = res[0][0]; m[0][1] = res[0][1]; m[1][0] = res[1][0]; m[1][1] = res[1][1]
+
+    N = N / 2
+end
+
+debug ans[0][1]
