@@ -47,10 +47,6 @@ suffix = {
     term ~ (indexing)+
 }
 
-suffix_assign = {
-    term ~ (indexing)+ ~ "=" ~ expression
-}
-
 false_expr = { "false" }
 true_expr = { "true" }
 
@@ -96,6 +92,10 @@ debug_print = { "debug" ~ expression }
 
 break_stmt = { "break" }
 next_stmt = { "next" }
+
+suffix_assign = {
+    term ~ (indexing)+ ~ "=" ~ expression
+}
 
 expression = { infix | expression_inner }
 

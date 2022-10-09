@@ -17,7 +17,7 @@ impl<'a> From<Span<'a>> for AstSpan {
 
 #[derive(Debug, Clone)]
 pub enum Expression<'a> {
-    String_(String_<'a>),
+    String_(String_),
     Int(Integer),
     Bool(Bool),
     Array(Array<'a>),
@@ -69,8 +69,8 @@ pub struct Prefix<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct String_<'a> {
-    pub value: &'a str,
+pub struct String_ {
+    pub value: String,
     pub pos: AstSpan,
 }
 

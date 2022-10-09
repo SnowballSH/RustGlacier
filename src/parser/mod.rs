@@ -1,7 +1,7 @@
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
-use pest::prec_climber::*;
 use pest::Parser;
+use pest::prec_climber::*;
 use pest_derive::*;
 
 use ast::*;
@@ -43,7 +43,30 @@ fn infix<'a>(lhs: Expression<'a>, op: Pair<'a, Rule>, rhs: Expression<'a>) -> Ex
 fn others(pair: Pair<Rule>) -> Expression {
     match pair.as_rule() {
         Rule::string_literal => Expression::String_(String_ {
-            value: &pair.as_str()[1..pair.as_str().len() - 1],
+            value: {
+                let mut s = String::new();
+                let mut escape_mode = false;
+                for c in pair.as_str()[1..pair.as_str().len() - 1].chars() {
+                    if escape_mode {
+                        match c {
+                            'n' => s.push('\n'),
+                            't' => s.push('\t'),
+                            'r' => s.push('\r'),
+                            '0' => s.push('\0'),
+                            '"' => s.push('"'),
+                            '\'' => s.push('\''),
+                            '\\' => s.push('\\'),
+                            _ => ()
+                        }
+                        escape_mode = false;
+                    } else if c == '\\' {
+                        escape_mode = true;
+                    } else {
+                        s.push(c);
+                    }
+                }
+                s
+            },
             pos: pair.as_span().into(),
         }),
 
@@ -251,7 +274,7 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
                 } else {
                     return Statement::PointerAssign(Box::new(PointerAssign {
                         ptr: callee,
-                        value: parse_expression(xx.into()),
+                        value: parse_expression(xx),
                         pos: pair.as_span().into(),
                     }));
                 }
