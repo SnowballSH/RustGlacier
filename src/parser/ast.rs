@@ -18,7 +18,8 @@ impl<'a> From<Span<'a>> for AstSpan {
 #[derive(Debug, Clone)]
 pub enum Expression<'a> {
     String_(String_),
-    Int(Integer),
+    Int(Integer<'a>),
+    Float(Float<'a>),
     Bool(Bool),
     Array(Array<'a>),
     GetVar(GetVar<'a>),
@@ -75,8 +76,14 @@ pub struct String_ {
 }
 
 #[derive(Debug, Clone)]
-pub struct Integer {
-    pub value: u64,
+pub struct Integer<'a> {
+    pub value: &'a str,
+    pub pos: AstSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct Float<'a> {
+    pub value: &'a str,
     pub pos: AstSpan,
 }
 

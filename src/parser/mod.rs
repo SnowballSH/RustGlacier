@@ -1,7 +1,7 @@
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
-use pest::Parser;
 use pest::prec_climber::*;
+use pest::Parser;
 use pest_derive::*;
 
 use ast::*;
@@ -56,7 +56,7 @@ fn others(pair: Pair<Rule>) -> Expression {
                             '"' => s.push('"'),
                             '\'' => s.push('\''),
                             '\\' => s.push('\\'),
-                            _ => ()
+                            _ => (),
                         }
                         escape_mode = false;
                     } else if c == '\\' {
@@ -71,7 +71,12 @@ fn others(pair: Pair<Rule>) -> Expression {
         }),
 
         Rule::integer => Expression::Int(Integer {
-            value: pair.as_str().parse().unwrap(),
+            value: pair.as_str(),
+            pos: pair.as_span().into(),
+        }),
+
+        Rule::float => Expression::Float(Float {
+            value: pair.as_str(),
             pos: pair.as_span().into(),
         }),
 

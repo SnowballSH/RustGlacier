@@ -11,7 +11,6 @@ use super::memory::*;
 
 pub const BYTECODE_CAP: usize = 1024;
 pub const CONSTANT_SIZE: usize = 1024;
-pub const CONSTANT_SMALL_INT_SIZE: usize = 512 + 8;
 pub const LOCAL_SIZE: usize = 1024;
 pub const SCOPE_SIZE: usize = 512;
 pub const STACK_SIZE: usize = 8192;
@@ -37,7 +36,7 @@ pub struct VM {
     pub pc: usize,
 
     pub constants: ArrayVec<Value, CONSTANT_SIZE>,
-    pub constant_hash_small_int: [Option<Byte>; CONSTANT_SMALL_INT_SIZE],
+    pub constant_hash_int: HashMap<i64, Byte>,
 
     pub break_jump_patches: Vec<Vec<usize>>,
     pub next_jump_patches: Vec<Vec<usize>>,
@@ -62,7 +61,7 @@ impl Default for VM {
             pc: 0,
 
             constants: ArrayVec::new(),
-            constant_hash_small_int: [None; CONSTANT_SMALL_INT_SIZE],
+            constant_hash_int: HashMap::new(),
 
             break_jump_patches: Vec::new(),
             next_jump_patches: Vec::new(),
@@ -279,29 +278,46 @@ impl VM {
             }
 
             Expression::Int(num) => {
-                let index;
-                if num.value < CONSTANT_SMALL_INT_SIZE as u64
-                    && self.constant_hash_small_int[num.value as usize].is_some()
-                {
-                    index = self.constant_hash_small_int[num.value as usize].unwrap();
-                } else if self
-                    .constants
-                    .try_push(Value::Int(num.value as i64))
-                    .is_err()
-                {
-                    self.compile_error(
-                        num.pos,
-                        format!("Constant exceeds limit of {}", CONSTANT_SIZE),
-                    );
-                    return false;
-                } else {
-                    index = self.constants.len() as Byte - 1;
-                    if num.value < CONSTANT_SMALL_INT_SIZE as u64 {
-                        self.constant_hash_small_int[num.value as usize] = Some(index);
+                let val = num.value.parse::<i64>();
+                if let Ok(val) = val {
+                    let index;
+                    if let Some(k) = self.constant_hash_int.get(&val) {
+                        index = *k;
+                    } else if self.constants.try_push(Value::Int(val)).is_err() {
+                        self.compile_error(
+                            num.pos,
+                            format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                        );
+                        return false;
+                    } else {
+                        index = self.constants.len() as Byte - 1;
+                        self.constant_hash_int.insert(val, index);
                     }
+                    self.push_bytecode(LOAD_CONST, num.pos);
+                    self.push_bytecode(index, num.pos);
+                } else {
+                    self.compile_error(num.pos, "Integer literal too large".to_string());
+                    return false;
                 }
-                self.push_bytecode(LOAD_CONST, num.pos);
-                self.push_bytecode(index, num.pos);
+            }
+
+            Expression::Float(num) => {
+                let val = num.value.parse::<f64>();
+                if let Ok(val) = val {
+                    if self.constants.try_push(Value::Float(val)).is_err() {
+                        self.compile_error(
+                            num.pos,
+                            format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                        );
+                        return false;
+                    }
+                    let index = self.constants.len() as Byte - 1;
+                    self.push_bytecode(LOAD_CONST, num.pos);
+                    self.push_bytecode(index, num.pos);
+                } else {
+                    self.compile_error(num.pos, "Integer literal too large".to_string());
+                    return false;
+                }
             }
 
             Expression::Bool(b) => {

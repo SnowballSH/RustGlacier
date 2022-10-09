@@ -4,7 +4,8 @@ TERMINATOR = _{ NEWLINE | ";" }
 WHITESPACE = _{ " " | "\t" }
 COMMENT = _{ ("#" ~ (!NEWLINE ~ ANY)*) }
 
-integer = @{ ASCII_DIGIT{1, 19} }
+integer = @{ ASCII_DIGIT{1, 32} }
+float = @{ ASCII_DIGIT{1, 32} ~ "." ~ ASCII_DIGIT{1, 32} }
 idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 identifier = @{ !(keyword ~ !(ASCII_ALPHANUMERIC)) ~ idt }
 keyword = @{
@@ -50,7 +51,7 @@ suffix = {
 false_expr = { "false" }
 true_expr = { "true" }
 
-term = _{ string_literal | integer | false_expr | true_expr | identifier | array | "(" ~ expression ~ ")" }
+term = _{ string_literal | float | integer | false_expr | true_expr | identifier | array | "(" ~ expression ~ ")" }
 
 prefix = { prefix_operators+ ~ expression_inner }
 
