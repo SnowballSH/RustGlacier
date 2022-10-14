@@ -837,116 +837,95 @@ impl VM {
                     BINARY_ADD => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack.push_unchecked(alloc_new_value(Value::Int(
-                                    l.wrapping_add(*r),
-                                )));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} + {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_add(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} + {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_SUB => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack.push_unchecked(alloc_new_value(Value::Int(
-                                    l.wrapping_sub(*r),
-                                )));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} - {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_sub(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} - {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_MUL => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack.push_unchecked(alloc_new_value(Value::Int(
-                                    l.wrapping_mul(*r),
-                                )));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} * {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_mul(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} * {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_DIV => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                if *r == 0 {
-                                    self.runtime_error(format!(
-                                        "Division by zero: {} / 0",
-                                        left.debug_format()
-                                    ));
-                                    return;
-                                }
-
-                                self.stack.push_unchecked(alloc_new_value(Value::Int(
-                                    l.wrapping_div(*r),
-                                )));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} / {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_div(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} / {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_MOD => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                if *r == 0 {
-                                    self.runtime_error(format!(
-                                        "Modulo by zero: {} % 0",
-                                        left.debug_format()
-                                    ));
-                                    return;
-                                }
-
-                                self.stack.push_unchecked(alloc_new_value(Value::Int(
-                                    l.wrapping_rem(*r),
-                                )));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} % {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_mod(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} % {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
@@ -967,92 +946,76 @@ impl VM {
                     BINARY_LT => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(*l < *r)));
-                            }
-                            (Value::String(l), Value::String(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(l < r)));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} < {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_lt(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} < {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_LE => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(*l <= *r)));
-                            }
-                            (Value::String(l), Value::String(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(l <= r)));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} <= {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_le(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} <= {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_GT => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(*l > *r)));
-                            }
-                            (Value::String(l), Value::String(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(l > r)));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} > {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_gt(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} > {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 
                     BINARY_GE => {
                         let right = &*self.stack.pop().unwrap();
                         let left = &*self.stack.pop().unwrap();
-                        match (&left, &right) {
-                            (Value::Int(l), Value::Int(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(*l >= *r)));
-                            }
-                            (Value::String(l), Value::String(r)) => {
-                                self.stack
-                                    .push_unchecked(alloc_new_value(Value::Bool(l >= r)));
-                            }
-                            _ => {
-                                self.runtime_error(format!(
-                                    "Unsupported Binary operation: {} >= {}",
-                                    left.type_name(),
-                                    right.type_name()
-                                ));
-                                return;
-                            }
+                        let res = left.binary_ge(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} >= {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
                         }
                     }
 

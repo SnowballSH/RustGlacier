@@ -2,6 +2,12 @@
 
 use crate::memory::alloc_new_value;
 
+pub enum BinOpResult {
+    Ok(*mut Value),
+    Error(String),
+    NoMatch,
+}
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Value {
@@ -95,6 +101,161 @@ impl Value {
             }
 
             _ => false,
+        }
+    }
+
+    pub fn binary_add(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1 + f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Int(i1 + i2)))
+            }
+            (Value::String(s1), Value::String(s2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::String(s1.clone() + s2)))
+            }
+
+            (Value::Array(a1), Value::Array(a2)) => {
+                let mut new_array = a1.clone();
+                new_array.extend(a2.clone());
+
+                BinOpResult::Ok(alloc_new_value(Value::Array(new_array)))
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_sub(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1 - f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Int(i1 - i2)))
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_mul(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1 * f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Int(i1 * i2)))
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_div(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                if *f2 == 0.0 {
+                    BinOpResult::Error(format!("Division By Zero: {} / 0.0", *f1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Float(f1 / f2)))
+                }
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                if *i2 == 0 {
+                    BinOpResult::Error(format!("Division By Zero: {} / 0", *i1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Int(i1 / i2)))
+                }
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_mod(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                if *f2 == 0.0 {
+                    BinOpResult::Error(format!("Division By Zero: {} % 0.0", *f1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Float(f1 % f2)))
+                }
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                if *i2 == 0 {
+                    BinOpResult::Error(format!("Division By Zero: {} % 0", *i1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Int(i1 % i2)))
+                }
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_lt(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(f1 < f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(i1 < i2)))
+            }
+            (Value::String(s1), Value::String(s2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(s1 < s2)))
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_gt(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(f1 > f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(i1 > i2)))
+            }
+            (Value::String(s1), Value::String(s2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(s1 > s2)))
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_le(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(f1 <= f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(i1 <= i2)))
+            }
+            (Value::String(s1), Value::String(s2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(s1 <= s2)))
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_ge(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(f1 >= f2)))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(i1 >= i2)))
+            }
+            (Value::String(s1), Value::String(s2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(s1 >= s2)))
+            }
+
+            _ => BinOpResult::NoMatch,
         }
     }
 

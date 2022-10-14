@@ -1,7 +1,7 @@
 # This script Computes the Nth fibonacci number modulo MOD in O(log N) time
 
 # Fib[N]
-N = 854441722044072015
+N = 854441722044072015  # F[N] = 952625812 mod MOD
 
 # Modulo
 MOD = 1000000007
