@@ -41,7 +41,7 @@ fn main() {
 
                 vm.optimize();
 
-                println!("{}", vm.disassemble());
+                // println!("{}", vm.disassemble());
 
                 vm.execute();
                 if let Some(e) = &vm.error {
