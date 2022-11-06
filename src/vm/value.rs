@@ -23,10 +23,10 @@ pub enum Value {
 impl Value {
     pub fn debug_format(&self) -> String {
         match self {
-            Value::Float(f) => format!("{}", f),
-            Value::Int(i) => format!("{}", i),
-            Value::String(s) => format!("\"{}\"", s),
-            Value::Bool(b) => format!("{}", b),
+            Value::Float(f) => format!("{f}"),
+            Value::Int(i) => format!("{i}"),
+            Value::String(s) => format!("\"{s}\""),
+            Value::Bool(b) => format!("{b}"),
             Value::Null => "null".to_string(),
 
             Value::Array(a) => format!(
@@ -265,11 +265,11 @@ impl Value {
                 Value::Array(a) => {
                     if let Value::Int(i) = *index {
                         if i < 0 {
-                            Err(format!("Negative index not supported: {}", i))
+                            Err(format!("Negative index not supported: {i}"))
                         } else if let Some(v) = a.get(i as usize) {
                             Ok(*v)
                         } else {
-                            Err(format!("Index out of range: {}", i))
+                            Err(format!("Index out of range: {i}"))
                         }
                     } else {
                         Err(format!(
@@ -281,11 +281,11 @@ impl Value {
                 Value::String(s) => {
                     if let Value::Int(i) = *index {
                         if i < 0 {
-                            Err(format!("Negative index not supported: {}", i))
+                            Err(format!("Negative index not supported: {i}"))
                         } else if let Some(c) = s.chars().nth(i as usize) {
                             Ok(alloc_new_value(Value::String(c.to_string())))
                         } else {
-                            Err(format!("Index out of range: {}", i))
+                            Err(format!("Index out of range: {i}"))
                         }
                     } else {
                         Err(format!(

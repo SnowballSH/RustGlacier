@@ -268,7 +268,7 @@ impl VM {
                 {
                     self.compile_error(
                         s.pos,
-                        format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                        format!("Constant exceeds limit of {CONSTANT_SIZE}"),
                     );
                     return false;
                 }
@@ -286,7 +286,7 @@ impl VM {
                     } else if self.constants.try_push(Value::Int(val)).is_err() {
                         self.compile_error(
                             num.pos,
-                            format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                            format!("Constant exceeds limit of {CONSTANT_SIZE}"),
                         );
                         return false;
                     } else {
@@ -307,7 +307,7 @@ impl VM {
                     if self.constants.try_push(Value::Float(val)).is_err() {
                         self.compile_error(
                             num.pos,
-                            format!("Constant exceeds limit of {}", CONSTANT_SIZE),
+                            format!("Constant exceeds limit of {CONSTANT_SIZE}"),
                         );
                         return false;
                     }
@@ -669,7 +669,7 @@ impl VM {
                 LOAD_LOCAL | MAKE_ARRAY | REPLACE | JUMP_IF_FALSE | JUMP_IF_FALSE_NO_POP | JUMP => {
                     pc += 1;
                     let address = self.bytecodes[pc] as usize;
-                    args.push(format!("{:04x}", address));
+                    args.push(format!("{address:04x}"));
                 }
 
                 _ => (),
@@ -772,7 +772,7 @@ impl VM {
 
                     JUMP_IF_FALSE_NO_POP => {
                         let address = self.read_bytecode();
-                        if !(*self.stack.pop().unwrap()).is_truthy() {
+                        if !(**self.stack.last().unwrap()).is_truthy() {
                             self.pc = address as usize;
                         }
                     }
@@ -1021,7 +1021,7 @@ impl VM {
 
                     // Invalid
                     _ => {
-                        self.runtime_error(format!("Unknown bytecode: {}", bc));
+                        self.runtime_error(format!("Unknown bytecode: {bc}"));
                         return;
                     }
                 }

@@ -1,0 +1,14 @@
+# test 2: if/else
+# expected: 5
+
+k = 1
+if 3 >= 3: k = 3
+if -9 == 1: k = 2
+
+if k < 3
+    k = 4
+else
+    k = 5
+end
+
+k

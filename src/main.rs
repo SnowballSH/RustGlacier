@@ -35,17 +35,17 @@ fn main() {
                 vm.compile(&ast_);
 
                 if let Some(e) = &vm.error {
-                    println!("{}", e);
+                    println!("{e}");
                     return;
                 }
 
                 vm.optimize();
 
-                // println!("{}", vm.disassemble());
+                println!("{}", vm.disassemble());
 
                 vm.execute();
                 if let Some(e) = &vm.error {
-                    println!("{}", e);
+                    println!("{e}");
                 }
             } else if let Err(e) = ast_ {
                 if let pest::error::LineColLocation::Span(start, end) = e.line_col {

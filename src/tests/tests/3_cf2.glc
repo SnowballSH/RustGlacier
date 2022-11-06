@@ -1,0 +1,30 @@
+# test 3: while loop
+# expected: true
+
+k = -4
+c = 0
+while k / 2 < 10
+    c = c + k * k
+    k = k + 1
+end
+
+a1 = c == 2500
+
+k = 0
+c = 0
+s = 0
+while k < 10000
+    k = k + 1
+    if k % 5 == 0: next
+    if k % 127
+        s = s + 1
+    else
+        break
+    end
+    c = c + k % 3
+end
+
+a2 = c == 100
+a3 = s == 101
+
+a1 && a2 && a3

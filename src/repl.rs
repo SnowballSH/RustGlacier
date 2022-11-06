@@ -38,7 +38,7 @@ impl Repl {
                 self.vm.compile(&ast_);
 
                 if let Some(e) = &self.vm.error {
-                    println!("{}", e);
+                    println!("{e}");
                     continue;
                 }
 
@@ -52,7 +52,7 @@ impl Repl {
                 // println!("{:?}", self.vm.stack);
 
                 if let Some(e) = &self.vm.error {
-                    println!("{}", e);
+                    println!("{e}");
                     continue;
                 }
 
