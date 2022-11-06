@@ -53,7 +53,7 @@ true_expr = { "true" }
 
 term = _{ string_literal | float | integer | false_expr | true_expr | identifier | array | "(" ~ expression ~ ")" }
 
-prefix = { prefix_operators+ ~ expression_inner }
+prefix = { prefix_operators+ ~ term }
 
 assign = { identifier ~ "=" ~ expression }
 

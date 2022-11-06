@@ -159,14 +159,14 @@ impl Value {
                 if *f2 == 0.0 {
                     BinOpResult::Error(format!("Division By Zero: {} / 0.0", *f1))
                 } else {
-                    BinOpResult::Ok(alloc_new_value(Value::Float(f1 / f2)))
+                    BinOpResult::Ok(alloc_new_value(Value::Float(f1 / *f2)))
                 }
             }
             (Value::Int(i1), Value::Int(i2)) => {
                 if *i2 == 0 {
                     BinOpResult::Error(format!("Division By Zero: {} / 0", *i1))
                 } else {
-                    BinOpResult::Ok(alloc_new_value(Value::Int(i1 / i2)))
+                    BinOpResult::Ok(alloc_new_value(Value::Int(i1 / *i2)))
                 }
             }
 
@@ -180,14 +180,14 @@ impl Value {
                 if *f2 == 0.0 {
                     BinOpResult::Error(format!("Division By Zero: {} % 0.0", *f1))
                 } else {
-                    BinOpResult::Ok(alloc_new_value(Value::Float(f1 % f2)))
+                    BinOpResult::Ok(alloc_new_value(Value::Float((f1 % *f2 + *f2) % *f2)))
                 }
             }
             (Value::Int(i1), Value::Int(i2)) => {
                 if *i2 == 0 {
                     BinOpResult::Error(format!("Division By Zero: {} % 0", *i1))
                 } else {
-                    BinOpResult::Ok(alloc_new_value(Value::Int(i1 % i2)))
+                    BinOpResult::Ok(alloc_new_value(Value::Int((i1 % *i2 + *i2) % *i2)))
                 }
             }
 

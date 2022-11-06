@@ -1,5 +1,6 @@
 pub mod parser;
 pub mod repl;
+mod tests;
 pub mod vm;
 
 use crate::repl::Repl;
