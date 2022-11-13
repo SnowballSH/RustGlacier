@@ -9,11 +9,13 @@ use crate::value::*;
 use super::bytecode::*;
 use super::memory::*;
 
-pub const BYTECODE_CAP: usize = 1024;
-pub const CONSTANT_SIZE: usize = 1024;
-pub const LOCAL_SIZE: usize = 1024;
+pub const GC_TRIGGER: usize = 80000;
+
+pub const BYTECODE_CAP: usize = 32768;
+pub const CONSTANT_SIZE: usize = 4096;
+pub const LOCAL_SIZE: usize = 4096;
 pub const SCOPE_SIZE: usize = 512;
-pub const STACK_SIZE: usize = 8192;
+pub const STACK_SIZE: usize = 32768;
 
 pub const BOOL_FALSE_CONSTANT: usize = 0;
 pub const BOOL_TRUE_CONSTANT: usize = 1;
@@ -266,10 +268,7 @@ impl VM {
                     .try_push(Value::String(s.value.to_string()))
                     .is_err()
                 {
-                    self.compile_error(
-                        s.pos,
-                        format!("Constant exceeds limit of {CONSTANT_SIZE}"),
-                    );
+                    self.compile_error(s.pos, format!("Constant exceeds limit of {CONSTANT_SIZE}"));
                     return false;
                 }
 
@@ -703,7 +702,19 @@ impl VM {
         }
         self.last_popped = None;
         self.pc = 0;
+
+        let mut iteration = 0;
+
         while self.pc < self.bytecodes.len() {
+            if iteration == GC_TRIGGER {
+                self.gc_recollect();
+                iteration = 0;
+            }
+            if ALL_ALLOCATIONS.lock().unwrap().len() - unsafe { LAST_ALLOCATED } >= GC_FORCE_COLLECT
+            {
+                self.gc_recollect();
+            }
+
             unsafe {
                 let bc = self.read_bytecode();
                 match bc {
@@ -1026,6 +1037,22 @@ impl VM {
                     }
                 }
             }
+
+            iteration += 1;
         }
+
+        self.gc_recollect();
+    }
+
+    pub fn gc_recollect(&mut self) {
+        for item in self.stack.iter() {
+            mark(*item);
+        }
+
+        if let Some(p) = self.last_popped {
+            mark(p);
+        }
+
+        sweep();
     }
 }

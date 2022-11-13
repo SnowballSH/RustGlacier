@@ -66,6 +66,13 @@ impl Value {
         }
     }
 
+    pub fn referenced_children(&self) -> Option<Vec<*mut Value>> {
+        match self {
+            Value::Array(a) => Some(a.clone()),
+            _ => None,
+        }
+    }
+
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Float(f) => *f != 0.0,

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod testcases {
-    use crate::{parse, VM};
     use crate::value::Value;
+    use crate::{parse, VM};
 
     fn test_file(content: String, expected: Value) -> bool {
         let mut vm = VM {
@@ -51,7 +51,6 @@ mod testcases {
             false
         }
     }
-
 
     #[test]
     fn test_all() {
