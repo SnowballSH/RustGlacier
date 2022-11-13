@@ -65,6 +65,11 @@ bytecodes! {
     // Debug prints a
     DEBUG_PRINT;
 
+    // ECHO_PRINT
+    // Stack: [a] -> []
+    // Prints a
+    ECHO_PRINT;
+
     // JUMP_IF_FALSE address
     // Stack: [a] -> []
     // Jumps to address if stack if falsy

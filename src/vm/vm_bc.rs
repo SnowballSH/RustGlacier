@@ -219,6 +219,12 @@ impl VM {
                 };
                 self.push_bytecode(DEBUG_PRINT, e.pos);
             }
+            Statement::EchoPrint(e) => {
+                if !self.compile_expression(&e.expr) {
+                    return false;
+                };
+                self.push_bytecode(ECHO_PRINT, e.pos);
+            }
             Statement::Break(b) => {
                 self.push_bytecode(JUMP, b.pos);
                 if let Some(patches) = self.break_jump_patches.last_mut() {
@@ -680,7 +686,7 @@ impl VM {
                 bytecode_name(byte),
                 args.join(", ")
             ))
-            .unwrap();
+                .unwrap();
 
             pc += 1;
         }
@@ -798,6 +804,11 @@ impl VM {
                         println!("{}", (*value).debug_format());
                     }
 
+                    ECHO_PRINT => {
+                        let value = self.stack.pop().unwrap();
+                        println!("{}", (*value).print_format());
+                    }
+
                     GET => {
                         let index = self.stack.pop().unwrap();
                         let callee = self.stack.pop().unwrap();
@@ -827,6 +838,9 @@ impl VM {
                                 self.stack.push_unchecked(alloc_new_value(Value::Int(
                                     i.saturating_neg(),
                                 )));
+                            }
+                            Value::Float(f) => {
+                                self.stack.push_unchecked(alloc_new_value(Value::Float(-*f)));
                             }
                             _ => {
                                 self.runtime_error(format!(

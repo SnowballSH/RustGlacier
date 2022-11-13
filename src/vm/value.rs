@@ -23,9 +23,27 @@ pub enum Value {
 impl Value {
     pub fn debug_format(&self) -> String {
         match self {
+            Value::Float(f) => format!("{f:?}"),
+            Value::Int(i) => format!("{i:?}"),
+            Value::String(s) => format!("{s:?}"),
+            Value::Bool(b) => format!("{b:?}"),
+            Value::Null => "null".to_string(),
+
+            Value::Array(a) => format!(
+                "[{}]",
+                a.iter()
+                    .map(|v| unsafe { &**v }.debug_format())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        }
+    }
+
+    pub fn print_format(&self) -> String {
+        match self {
             Value::Float(f) => format!("{f}"),
             Value::Int(i) => format!("{i}"),
-            Value::String(s) => format!("\"{s}\""),
+            Value::String(s) => s.to_string(),
             Value::Bool(b) => format!("{b}"),
             Value::Null => "null".to_string(),
 
@@ -62,6 +80,17 @@ impl Value {
     pub fn shallow_copy(&mut self) -> *mut Value {
         match self {
             Value::Array(_) => self as *mut Value,
+            _ => alloc_new_value(self.clone()),
+        }
+    }
+
+    pub fn deep_copy(&mut self) -> *mut Value {
+        match self {
+            Value::Array(a) => alloc_new_value(Value::Array(
+                a.iter()
+                    .map(|v| unsafe { &mut **v }.deep_copy())
+                    .collect(),
+            )),
             _ => alloc_new_value(self.clone()),
         }
     }
@@ -156,6 +185,34 @@ impl Value {
                 BinOpResult::Ok(alloc_new_value(Value::Int(i1 * i2)))
             }
 
+            // Shallow repetition
+            (Value::Array(a), Value::Int(i)) => {
+                if *i < 0 {
+                    return BinOpResult::Error("Array shallow repetition multiplier must be nonnegative".to_string());
+                }
+
+                let mut arr = Vec::new();
+                for _ in 0..*i {
+                    for v in a.iter() {
+                        unsafe {
+                            arr.push((**v).shallow_copy());
+                        }
+                    }
+                }
+
+                BinOpResult::Ok(alloc_new_value(Value::Array(arr)))
+            }
+
+            (Value::Array(a), Value::String(s)) => {
+                let mut ss = Vec::with_capacity(a.len());
+                unsafe {
+                    for x in a {
+                        ss.push((**x).print_format());
+                    }
+                }
+                BinOpResult::Ok(alloc_new_value(Value::String(ss.join(s))))
+            }
+
             _ => BinOpResult::NoMatch,
         }
     }
@@ -196,6 +253,24 @@ impl Value {
                 } else {
                     BinOpResult::Ok(alloc_new_value(Value::Int((i1 % *i2 + *i2) % *i2)))
                 }
+            }
+
+            // Deep repetition
+            (Value::Array(a), Value::Int(i)) => {
+                if *i < 0 {
+                    return BinOpResult::Error("Array deep repetition multiplier must be nonnegative".to_string());
+                }
+
+                let mut arr = Vec::new();
+                for _ in 0..*i {
+                    for v in a.iter() {
+                        unsafe {
+                            arr.push((**v).deep_copy());
+                        }
+                    }
+                }
+
+                BinOpResult::Ok(alloc_new_value(Value::Array(arr)))
             }
 
             _ => BinOpResult::NoMatch,

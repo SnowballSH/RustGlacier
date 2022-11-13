@@ -9,7 +9,7 @@ float = @{ ASCII_DIGIT{1, 32} ~ "." ~ ASCII_DIGIT{1, 32} }
 idt = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 identifier = @{ !(keyword ~ !(ASCII_ALPHANUMERIC)) ~ idt }
 keyword = @{
-    "if" | "else" | "while" | "do" | "end" | "debug" | "false" | "true" | "break" | "next"
+    "if" | "else" | "while" | "do" | "end" | "debug" | "echo" | "false" | "true" | "break" | "next"
 }
 
 string_literal = @{ "\"" ~ literal_char* ~ "\"" }
@@ -90,6 +90,7 @@ prefix_operators = _{
 infix = _{ expression_inner ~ (operators ~ expression_inner)+ }
 
 debug_print = { "debug" ~ expression }
+echo_print = { "echo" ~ expression }
 
 break_stmt = { "break" }
 next_stmt = { "next" }
@@ -104,6 +105,7 @@ expression_stmt = { expression }
 
 stmt = _{
     debug_print
+    | echo_print
     | break_stmt
     | next_stmt
     | suffix_assign

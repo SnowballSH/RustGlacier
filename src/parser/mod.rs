@@ -1,7 +1,7 @@
 use lazy_static::*;
 use pest::iterators::{Pair, Pairs};
-use pest::prec_climber::*;
 use pest::Parser;
+use pest::prec_climber::*;
 use pest_derive::*;
 
 use ast::*;
@@ -244,6 +244,14 @@ fn parse_statement(pair: Pair<Rule>) -> Statement {
                 pos: s,
             })
         }
+        Rule::echo_print => {
+            let p = pair.into_inner().next().unwrap();
+            let s = p.clone().as_span().into();
+            Statement::EchoPrint(EchoPrint {
+                expr: parse_expression(p),
+                pos: s,
+            })
+        }
         Rule::break_stmt => Statement::Break(Break {
             pos: pair.as_span().into(),
         }),
@@ -299,6 +307,7 @@ fn parse_program(res: Pairs<Rule>) -> Program {
             Rule::stmt
             | Rule::expression_stmt
             | Rule::debug_print
+            | Rule::echo_print
             | Rule::break_stmt
             | Rule::next_stmt
             | Rule::suffix_assign => ast.push(parse_statement(pair)),

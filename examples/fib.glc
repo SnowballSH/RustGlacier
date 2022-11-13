@@ -30,4 +30,4 @@ while N > 0
     N = N / 2
 end
 
-debug ans[0][1]
+echo ans[0][1]

@@ -123,6 +123,7 @@ pub struct Index<'a> {
 pub enum Statement<'a> {
     ExprStmt(ExprStmt<'a>),
     DebugPrint(DebugPrint<'a>),
+    EchoPrint(EchoPrint<'a>),
     Break(Break),
     Next(Next),
     PointerAssign(Box<PointerAssign<'a>>),
@@ -136,6 +137,12 @@ pub struct ExprStmt<'a> {
 
 #[derive(Debug, Clone)]
 pub struct DebugPrint<'a> {
+    pub expr: Expression<'a>,
+    pub pos: AstSpan,
+}
+
+#[derive(Debug, Clone)]
+pub struct EchoPrint<'a> {
     pub expr: Expression<'a>,
     pub pos: AstSpan,
 }
