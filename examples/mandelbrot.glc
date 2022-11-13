@@ -1,8 +1,8 @@
-# Draws a 80x41 image of Mandelbrot Set
+# Draws a 80x41 image of Mandelbrot Set with 55 iterations
 
 y = 1.0
 while y >= -1.0
-    line = [" "] % 80
+    line = ["."] % 80
 
     x = -2.0
     i = 0
@@ -14,10 +14,10 @@ while y >= -1.0
         ci = y
 
         k = 0
-        while k < 50
+        while k < 55
             zr2 = zr * zr
             zi2 = zi * zi
-            if zr2 + zi2 >= 4.0
+            if zr2 + zi2 > 4.0
                 break
             end
             zi = 2.0 * zr * zi + ci
@@ -25,7 +25,9 @@ while y >= -1.0
             k = k + 1
         end
 
-        if zr * zr + zi * zi < 4.0
+        ab = zr * zr + zi * zi
+
+        if ab <= 4.0
             line[i] = "*"
         end
 

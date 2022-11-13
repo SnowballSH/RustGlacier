@@ -9,7 +9,7 @@ use crate::value::*;
 use super::bytecode::*;
 use super::memory::*;
 
-pub const GC_TRIGGER: usize = 80000;
+pub const GC_TRIGGER: usize = 262144;
 
 pub const BYTECODE_CAP: usize = 32768;
 pub const CONSTANT_SIZE: usize = 4096;

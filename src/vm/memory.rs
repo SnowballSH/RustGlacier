@@ -1,4 +1,4 @@
-use std::alloc::{alloc, Layout};
+use std::alloc::{alloc, dealloc, Layout};
 use std::collections::hash_map::HashMap;
 use std::sync::Mutex;
 
@@ -23,7 +23,7 @@ lazy_static! {
 
 pub static mut LAST_ALLOCATED: usize = 0;
 
-pub const GC_FORCE_COLLECT: usize = 10000;
+pub const GC_FORCE_COLLECT: usize = 131072;
 
 pub fn alloc_value_ptr() -> *mut Value {
     let ptr = unsafe { alloc(LAYOUT) as *mut Value };
@@ -82,7 +82,7 @@ pub fn sweep() {
     for (ptr, state) in all_allocations.iter() {
         if *state == GCItemState::White {
             unsafe {
-                std::alloc::dealloc(*ptr as *mut u8, LAYOUT);
+                dealloc(*ptr as *mut u8, LAYOUT);
             }
             to_remove.push(*ptr);
         }
