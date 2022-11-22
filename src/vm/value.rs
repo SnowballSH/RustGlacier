@@ -148,6 +148,13 @@ impl Value {
             (Value::Int(i1), Value::Int(i2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Int(i1 + i2)))
             }
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(*i1 as f64 + f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1 + *i1 as f64)))
+            }
+
             (Value::String(s1), Value::String(s2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::String(s1.clone() + s2)))
             }
@@ -172,6 +179,13 @@ impl Value {
                 BinOpResult::Ok(alloc_new_value(Value::Int(i1 - i2)))
             }
 
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(*i1 as f64 - f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1 - *i1 as f64)))
+            }
+
             _ => BinOpResult::NoMatch,
         }
     }
@@ -183,6 +197,13 @@ impl Value {
             }
             (Value::Int(i1), Value::Int(i2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Int(i1 * i2)))
+            }
+
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(*i1 as f64 * f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1 * *i1 as f64)))
             }
 
             // Shallow repetition
@@ -234,6 +255,21 @@ impl Value {
                 }
             }
 
+            (Value::Int(i1), Value::Float(f1)) => {
+                if *f1 == 0.0 {
+                    BinOpResult::Error(format!("Division By Zero: {} / 0.0", *i1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Float(*i1 as f64 / f1)))
+                }
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                if *i1 == 0 {
+                    BinOpResult::Error(format!("Division By Zero: {} / 0", *f1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Float(f1 / *i1 as f64)))
+                }
+            }
+
             _ => BinOpResult::NoMatch,
         }
     }
@@ -242,17 +278,50 @@ impl Value {
         match (self, other) {
             (Value::Float(f1), Value::Float(f2)) => {
                 if *f2 == 0.0 {
-                    BinOpResult::Error(format!("Division By Zero: {} % 0.0", *f1))
+                    BinOpResult::Error(format!("Modulo By Zero: {} % 0.0", *f1))
                 } else {
                     BinOpResult::Ok(alloc_new_value(Value::Float((f1 % *f2 + *f2) % *f2)))
                 }
             }
             (Value::Int(i1), Value::Int(i2)) => {
                 if *i2 == 0 {
-                    BinOpResult::Error(format!("Division By Zero: {} % 0", *i1))
+                    BinOpResult::Error(format!("Modulo By Zero: {} % 0", *i1))
                 } else {
                     BinOpResult::Ok(alloc_new_value(Value::Int((i1 % *i2 + *i2) % *i2)))
                 }
+            }
+            (Value::Int(i1), Value::Float(f1)) => {
+                if *f1 == 0.0 {
+                    BinOpResult::Error(format!("Modulo By Zero: {} % 0.0", *i1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Float(((*i1 as f64) % f1 + f1) % f1)))
+                }
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                if *i1 == 0 {
+                    BinOpResult::Error(format!("Modulo By Zero: {} % 0", *f1))
+                } else {
+                    BinOpResult::Ok(alloc_new_value(Value::Float((f1 % (*i1 as f64) + *i1 as f64) % *i1 as f64)))
+                }
+            }
+
+            _ => BinOpResult::NoMatch,
+        }
+    }
+
+    pub fn binary_exp(&self, other: &Value) -> BinOpResult {
+        match (self, other) {
+            (Value::Float(f1), Value::Float(f2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1.powf(*f2))))
+            }
+            (Value::Int(i1), Value::Int(i2)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float((*i1 as f64).powf(*i2 as f64))))
+            }
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float((*i1 as f64).powf(*f1))))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Float(f1.powf(*i1 as f64))))
             }
 
             // Deep repetition
@@ -285,6 +354,12 @@ impl Value {
             (Value::Int(i1), Value::Int(i2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(i1 < i2)))
             }
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool((*i1 as f64) < *f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(*f1 < (*i1 as f64))))
+            }
             (Value::String(s1), Value::String(s2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(s1 < s2)))
             }
@@ -300,6 +375,12 @@ impl Value {
             }
             (Value::Int(i1), Value::Int(i2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(i1 > i2)))
+            }
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool((*i1 as f64) > *f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(*f1 > (*i1 as f64))))
             }
             (Value::String(s1), Value::String(s2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(s1 > s2)))
@@ -317,6 +398,12 @@ impl Value {
             (Value::Int(i1), Value::Int(i2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(i1 <= i2)))
             }
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool((*i1 as f64) <= *f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(*f1 <= (*i1 as f64))))
+            }
             (Value::String(s1), Value::String(s2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(s1 <= s2)))
             }
@@ -332,6 +419,12 @@ impl Value {
             }
             (Value::Int(i1), Value::Int(i2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(i1 >= i2)))
+            }
+            (Value::Int(i1), Value::Float(f1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool((*i1 as f64) >= *f1)))
+            }
+            (Value::Float(f1), Value::Int(i1)) => {
+                BinOpResult::Ok(alloc_new_value(Value::Bool(*f1 >= (*i1 as f64))))
             }
             (Value::String(s1), Value::String(s2)) => {
                 BinOpResult::Ok(alloc_new_value(Value::Bool(s1 >= s2)))

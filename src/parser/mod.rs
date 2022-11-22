@@ -23,6 +23,7 @@ lazy_static! {
                 | Operator::new(lteq, Left),
             Operator::new(add, Left) | Operator::new(sub, Left),
             Operator::new(mul, Left) | Operator::new(div, Left) | Operator::new(modulo, Left),
+            Operator::new(exp, Right),
         ])
     };
 }

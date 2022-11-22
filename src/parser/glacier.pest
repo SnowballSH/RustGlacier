@@ -67,6 +67,7 @@ sub = { "-" }
 mul = { "*" }
 div = { "/" }
 modulo = { "%" }
+exp = { "**" }
 dbeq = { "==" }
 neq = { "!=" }
 gt = { ">" }
@@ -78,7 +79,7 @@ log_and = { "&&" }
 log_or = { "||" }
 
 operators = _{
-    add | sub | mul | div | modulo
+    exp | add | sub | mul | div | modulo
     | dbeq | neq | gteq | lteq | gt | lt
     | log_and | log_or
 }

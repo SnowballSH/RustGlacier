@@ -1,0 +1,25 @@
+n = 30000
+
+A = [true] * n
+
+i = 2
+L = n ** 0.5
+while i <= L
+    if A[i]
+        j = i * i
+        while j < n
+            A[j] = false
+            j = j + i
+        end
+    end
+    i = i + 1
+end
+
+c = 0
+k = 2
+while k < n
+    if A[k]: c = c + 1
+    k = k + 1
+end
+
+echo c

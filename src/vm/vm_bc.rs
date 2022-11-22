@@ -9,13 +9,13 @@ use crate::value::*;
 use super::bytecode::*;
 use super::memory::*;
 
-pub const GC_TRIGGER: usize = 262144;
+pub const GC_TRIGGER: usize = 1 << 20;
 
 pub const BYTECODE_CAP: usize = 32768;
 pub const CONSTANT_SIZE: usize = 4096;
 pub const LOCAL_SIZE: usize = 4096;
 pub const SCOPE_SIZE: usize = 512;
-pub const STACK_SIZE: usize = 32768;
+pub const STACK_SIZE: usize = 1 << 16;
 
 pub const BOOL_FALSE_CONSTANT: usize = 0;
 pub const BOOL_TRUE_CONSTANT: usize = 1;
@@ -430,6 +430,9 @@ impl VM {
                             }
                             "%" => {
                                 self.push_bytecode(BINARY_MOD, infix.pos);
+                            }
+                            "**" => {
+                                self.push_bytecode(BINARY_EXP, infix.pos);
                             }
 
                             "==" => {
@@ -947,6 +950,25 @@ impl VM {
                         } else {
                             self.runtime_error(format!(
                                 "Unsupported Binary operation: {} % {}",
+                                left.type_name(),
+                                right.type_name()
+                            ));
+                            return;
+                        }
+                    }
+
+                    BINARY_EXP => {
+                        let right = &*self.stack.pop().unwrap();
+                        let left = &*self.stack.pop().unwrap();
+                        let res = left.binary_exp(right);
+                        if let BinOpResult::Ok(res) = res {
+                            self.stack.push_unchecked(res);
+                        } else if let BinOpResult::Error(e) = res {
+                            self.runtime_error(e);
+                            return;
+                        } else {
+                            self.runtime_error(format!(
+                                "Unsupported Binary operation: {} ** {}",
                                 left.type_name(),
                                 right.type_name()
                             ));

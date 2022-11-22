@@ -119,6 +119,10 @@ bytecodes! {
     // Stack: [a, b] -> [a % b]
     // a MOD b
     BINARY_MOD;
+    // BINARY_EXP
+    // Stack: [a, b] -> [a ** b]
+    // a EXP b
+    BINARY_EXP;
 
     // BINARY_EQ
     // Stack: [a, b] -> [a == b]

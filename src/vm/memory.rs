@@ -23,7 +23,7 @@ lazy_static! {
 
 pub static mut LAST_ALLOCATED: usize = 0;
 
-pub const GC_FORCE_COLLECT: usize = 131072;
+pub const GC_FORCE_COLLECT: usize = 1 << 19;
 
 pub fn alloc_value_ptr() -> *mut Value {
     let ptr = unsafe { alloc(LAYOUT) as *mut Value };

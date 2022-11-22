@@ -16,7 +16,7 @@ bytecodes, and many more are the features I am aiming to use.
 ## Design
 
 - Simplicity
-    - Ruby-style syntax with as little native types as possible.
+    - Ruby-style syntax with as few native types as possible.
 - Speed
     - Compiled to GlacierVM bytecode and executed by a fast VM.
     - JIT will be implemented in the future.
